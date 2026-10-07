@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Simulador da convocação em lotes do TJCE (AJAJ e Técnico I09), 2027–2029.">
+<title>Convocação TJCE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: painel de premissas fixo à esquerda + quadro de convocação (resumo, linha do tempo dos lotes, ordem) à direita */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#f4f6f9; --line:#d8dde6; --line-2:#e7eaf0;
+  --fg:#161d2b; --muted:#5a6476; --faint:#8a93a3;
+  --accent:#233f8c; --accent-soft:#e3e9f8; --accent-fg:#ffffff;
+  --red:#c42318; --amber:#a85700; --amber-soft:#fff1de; --green:#16784a; --green-soft:#e2f4ea;
+  --comp:#7a4bb5; --refuse:#8a93a3;
+  --lc-l:46%; --lc-s:62%; --tint:9%;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131b; --surface:#151b26; --surface-2:#1b2230; --line:#2a3445; --line-2:#222b3a;
+  --fg:#e5e9f1; --muted:#9aa4b6; --faint:#6c7689;
+  --accent:#9cb3ff; --accent-soft:#1f2a47; --accent-fg:#0e131b;
+  --red:#ff6d63; --amber:#f2a64a; --amber-soft:#3a2a12; --green:#55cf8d; --green-soft:#14301f;
+  --comp:#b994ee; --refuse:#6c7689; --lc-l:58%; --lc-s:58%; --tint:14%; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0e131b; --surface:#151b26; --surface-2:#1b2230; --line:#2a3445; --line-2:#222b3a;
+  --fg:#e5e9f1; --muted:#9aa4b6; --faint:#6c7689;
+  --accent:#9cb3ff; --accent-soft:#1f2a47; --accent-fg:#0e131b;
+  --red:#ff6d63; --amber:#f2a64a; --amber-soft:#3a2a12; --green:#55cf8d; --green-soft:#14301f;
+  --comp:#b994ee; --refuse:#6c7689; --lc-l:58%; --lc-s:58%; --tint:14%; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-body);margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{padding-inline:16px;padding-block:14px 40px;max-width:1680px;margin:0 auto}
+.num,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* topo */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 24px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.brand{min-width:0;flex:1 1 280px}
+.eyebrow{font:600 11px/1.2 var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+h1{font:780 30px/1.05 var(--f-display);font-stretch:80%;letter-spacing:-.01em;margin:4px 0 0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--accent)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);padding:6px 11px;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.warn{border-color:var(--red);color:var(--red)}
+.btn.sm{padding:3px 8px;font-size:12px}
+
+.layout{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}}
+
+/* painel de premissas */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 10px);max-height:calc(100vh - 20px);overflow:auto}
+@media (max-width:1000px){.panel{position:static;max-height:none}.panel.collapsed .pbody{display:none}}
+.phead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line-2);gap:8px}
+.phead h2{font:700 15px/1.2 var(--f-display);font-stretch:90%;margin:0;letter-spacing:.01em}
+.ptoggle{display:none}
+@media (max-width:1000px){.ptoggle{display:inline-block}}
+.psec{padding:12px 14px;border-bottom:1px solid var(--line-2);display:grid;gap:8px}
+.psec h3{font:650 11px/1.2 var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0}
+.fld{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center;font-size:13px}
+.fld small{display:block;color:var(--faint);font-size:11.5px;line-height:1.3}
+.fld input,.fld select{width:100%}
+input[type=number],input[type=text],select,textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;min-width:0}
+input[type=number]{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.ytbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.ytbl th{font-weight:600;color:var(--muted);text-align:right;padding:3px 4px;font-size:11px}
+.ytbl th:first-child,.ytbl td:first-child{text-align:left}
+.ytbl td{padding:3px 4px;text-align:right}
+.ytbl input{width:100%;max-width:70px;padding:3px 5px}
+.out{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+.out.strong{color:var(--fg);font-weight:600}
+.ycard{border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;display:grid;gap:6px;background:var(--surface-2)}
+.yhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.yhead b{font:700 14px var(--f-display);font-stretch:90%}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--surface)}
+.stepper button{border:0;background:none;width:26px;height:26px;cursor:pointer;font-weight:700}
+.stepper span{min-width:58px;text-align:center;font-size:12px}
+.lrow{display:grid;grid-template-columns:14px 34px minmax(0,1fr) 76px;gap:6px;align-items:center;font-size:12.5px}
+.lrow .sw{width:12px;height:12px;border-radius:3px;background:var(--lc)}
+.lrow select{padding:3px 4px}
+.lrow input{padding:3px 5px}
+.lrow .auto{font-family:var(--f-mono);text-align:right;padding-right:6px;color:var(--muted)}
+.warnline{color:var(--red);font-size:12px}
+.note{font-size:12px;color:var(--muted);line-height:1.45}
+
+/* resumo */
+.main{min-width:0;display:grid;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.kpi .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpi .v{font:760 26px/1.1 var(--f-display);font-stretch:85%;font-variant-numeric:tabular-nums;margin-top:3px}
+.kpi .s{font-size:12px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
+.card h2{font:720 15px/1.2 var(--f-display);font-stretch:90%;margin:0}
+.chead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;padding:12px 14px 8px}
+.chead .note{max-width:70ch}
+.scroll{overflow-x:auto}
+.sumtbl{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+.sumtbl th{font-size:11px;font-weight:600;color:var(--muted);text-align:right;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.sumtbl td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line-2);font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sumtbl th:first-child,.sumtbl td:first-child{text-align:left;font-family:var(--f-body);font-weight:600}
+.sumtbl tr.tot td{font-weight:700;border-bottom:0}
+.sumtbl .grp{border-left:1px solid var(--line-2)}
+
+/* linha do tempo */
+.tl{padding:4px 14px 14px;display:grid;gap:8px}
+.tlrow{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:center}
+.tlrow .yr{font:700 14px var(--f-display);font-stretch:85%;color:var(--muted)}
+.tlbar{display:flex;gap:3px;min-width:0}
+.blk{flex:var(--g) 1 0;min-width:30px;border:0;border-radius:5px;background:hsl(var(--h) var(--lc-s) var(--lc-l));color:#fff;padding:5px 6px;text-align:left;cursor:pointer;overflow:hidden;line-height:1.15;font-size:11px}
+.blk b{display:block;font:700 13px var(--f-display);font-stretch:85%}
+.blk span{opacity:.9;white-space:nowrap}
+.blk.comp{flex:0 0 auto;min-width:34px;background:repeating-linear-gradient(135deg,var(--comp) 0 5px,color-mix(in oklab,var(--comp) 70%,var(--surface)) 5px 10px)}
+.blk.sel{outline:2px solid var(--fg);outline-offset:1px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);padding:0 14px 12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* barra e tabela */
+.tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.tbar input[type=search]{flex:1 1 220px;min-width:0;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:7px 10px}
+.tbar select{padding:6px 8px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--fg);border-radius:999px;padding:3px 4px 3px 10px;font-size:12px}
+.chip button{border:0;background:var(--surface);border-radius:999px;width:20px;height:20px;cursor:pointer}
+.count{font-size:12px;color:var(--muted);margin-left:auto}
+table.ord{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;min-width:980px}
+table.ord thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-size:11px;font-weight:600;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.ord th.r,table.ord td.r{text-align:right}
+table.ord td{padding:6px 8px;border-bottom:1px solid var(--line-2);vertical-align:top}
+tr.g td{background:color-mix(in oklab,hsl(var(--h) var(--lc-s) var(--lc-l)) 16%,var(--surface));border-top:2px solid hsl(var(--h) var(--lc-s) var(--lc-l));padding:8px 8px;font-size:12.5px;color:var(--fg)}
+tr.g.comp td{background:color-mix(in oklab,var(--comp) 14%,var(--surface));border-top-color:var(--comp)}
+tr.g.tail td{background:var(--surface-2);border-top-color:var(--line)}
+tr.g b{font:720 14px var(--f-display);font-stretch:88%;margin-right:8px}
+tr.g .gm{color:var(--muted)}
+tr.g button{margin-left:8px}
+tr.p{cursor:pointer;background:color-mix(in oklab,hsl(var(--h) var(--lc-s) var(--lc-l)) var(--tint),var(--surface))}
+tr.p td:first-child{box-shadow:inset 4px 0 0 hsl(var(--h) var(--lc-s) var(--lc-l))}
+tr.p.comp{background:color-mix(in oklab,var(--comp) var(--tint),var(--surface))}
+tr.p.comp td:first-child{box-shadow:inset 4px 0 0 var(--comp)}
+tr.p.tail{background:var(--surface)}
+tr.p.tail td:first-child{box-shadow:inset 4px 0 0 var(--line)}
+tr.p:hover td{background:color-mix(in oklab,var(--accent) 7%,transparent)}
+tr.p.refuse{color:var(--muted)}
+tr.p.refuse .name{text-decoration:line-through;text-decoration-color:var(--faint)}
+tr.p.istd .name{text-decoration:line-through;text-decoration-color:var(--amber);text-decoration-thickness:2px}
+tr.p.ph{cursor:default;color:var(--muted);font-style:italic}
+td.pos{font-family:var(--f-mono);font-weight:600;white-space:nowrap;padding-left:12px!important}
+td.pos small{display:block;font-weight:400;font-size:10.5px;color:var(--muted)}
+.name{font-weight:600}
+.name.proj{color:var(--red)}
+.meta{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35;max-width:62ch}
+.meta .k{color:var(--fg);font-weight:600}
+.badge{display:inline-block;font:600 10.5px/1 var(--f-mono);padding:3px 5px;border-radius:4px;border:1px solid var(--fg);letter-spacing:.02em}
+.badge.ghost{border-color:var(--line);color:var(--muted);margin-left:3px}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+.tag.td{background:var(--amber);color:var(--surface)}
+.tag.sub{background:var(--comp);color:var(--surface)}
+.tag.ed{background:var(--accent-soft);color:var(--accent)}
+.tag.ref{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.tag.out{background:var(--green-soft);color:var(--green)}
+.adv{font:600 12px var(--f-mono);white-space:nowrap;display:block}
+.adv.up{color:var(--green)}
+.adv.dn{color:var(--red)}
+.adv.t{font-size:10.5px;color:var(--muted);font-weight:500}
+.lchip{display:inline-block;font:700 11px/1 var(--f-mono);padding:4px 6px;border-radius:4px;background:hsl(var(--h) var(--lc-s) var(--lc-l));color:#fff;white-space:nowrap}
+.lchip.comp{background:var(--comp)}
+.lchip.tail{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.tdbtn{border:1.5px solid var(--line);background:var(--surface);border-radius:5px;font:700 11px var(--f-mono);padding:4px 7px;cursor:pointer;color:var(--muted)}
+.tdbtn:hover{border-color:var(--amber);color:var(--amber)}
+.tdbtn.on{background:var(--amber);border-color:var(--amber);color:var(--surface)}
+.tit.edited{color:var(--accent);font-weight:700}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+
+/* gaveta */
+.drawer{position:fixed;inset:0;z-index:30;display:flex;justify-content:flex-end;background:color-mix(in oklab,#000 35%,transparent)}
+.dpanel{width:min(480px,100%);height:100%;background:var(--surface);border-left:1px solid var(--line);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px calc(env(safe-area-inset-bottom,0px) + 24px);display:grid;gap:14px;align-content:start}
+.dhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.dhead h2{font:760 22px/1.1 var(--f-display);font-stretch:82%;margin:2px 0 4px;text-wrap:balance}
+.dhead h2.proj{color:var(--red)}
+.dgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dgrid div{background:var(--surface-2);border-radius:8px;padding:8px 10px;min-width:0}
+.dgrid .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.dgrid .v{font:720 18px/1.2 var(--f-display);font-stretch:85%;font-variant-numeric:tabular-nums}
+.dsec{border-top:1px solid var(--line-2);padding-top:12px;display:grid;gap:8px}
+.dsec h3{font:650 11px/1.2 var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0}
+.dsec p{margin:0;font-size:13px;line-height:1.5}
+.titrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.titrow input{width:96px}
+.tdbig{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;background:var(--surface);text-align:left;width:100%}
+.tdbig.on{border-color:var(--amber);background:var(--amber-soft)}
+.tdbig .box{width:20px;height:20px;border-radius:4px;border:2px solid var(--amber);flex:none;display:grid;place-items:center;font-weight:800;color:var(--surface)}
+.tdbig.on .box{background:var(--amber)}
+.callout{background:var(--surface-2);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.5}
+.callout.green{background:var(--green-soft)}
+.callout.amber{background:var(--amber-soft)}
+.callout.comp{background:color-mix(in oklab,var(--comp) 14%,var(--surface))}
+label.ck{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:color-mix(in oklab,#000 40%,transparent);padding:16px}
+.mbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);max-height:90vh;overflow:auto;padding:16px;display:grid;gap:10px}
+.mbox textarea{width:100%;min-height:220px;font:12px/1.4 var(--f-mono)}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:50}
+@media (prefers-reduced-motion:no-preference){.blk,.tdbtn,.btn{transition:filter .12s,border-color .12s,background .12s}.blk:hover{filter:brightness(1.08)}}
+</style>
+
+
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">TJCE · concurso 2026 · projeção 2027–2029</div>
+      <h1>Convocação em lotes · <em id="h1cargo">Analista Judiciário</em></h1>
+    </div>
+    <nav class="seg" role="tablist" aria-label="Cargo">
+      <button id="tab-aj" role="tab" data-cargo="aj" aria-selected="true">Analista · AJAJ</button>
+      <button id="tab-tec" role="tab" data-cargo="tec" aria-selected="false">Técnico · I09</button>
+    </nav>
+    <div class="actions">
+      <button class="btn" id="btnExport">Exportar cenário</button>
+      <button class="btn" id="btnImport">Importar</button>
+      <button class="btn" id="btnReset">Restaurar padrão</button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="panel collapsed" id="panel" aria-label="Premissas e lotes"></aside>
+    <main class="main">
+      <section class="kpis" id="kpis"></section>
+      <section class="card" id="sumcard"></section>
+      <section class="card" id="tlcard"></section>
+      <section class="card">
+        <div class="tbar" id="tbar"></div>
+        <div class="scroll" id="tblwrap"></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="drawer" id="drawer" hidden><div class="dpanel" id="dpanel" role="dialog" aria-modal="true"></div></div>
+<div class="modal" id="modal" hidden><div class="mbox" id="mbox"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script id="data" type="application/json">{"aj":[["Ravanny Landim Bezerra","0034304d","A",18.63,0.75,0],["Talles Gabriel Costa Pinheiro","0038375c","AN",18.48,0.0,0],["Joao Marcos de Araujo Lima","0074291a","A",18.69,0.25,0],["Clarice Ribeiro Alves Caiana","0064865g","A",18.81,0.0,1],["Marina Maranhao Melo Marques Mourao","0054327f","AP",17.79,0.25,0],["Alysson Zeferino Marques","0074316b","AN",18.13,0.25,0],["Victor Alexandre Borgert de Oliveira","0035213f","A",18.56,0.25,1],["Gabriela de Meneses Uchoa Cavalcanti","0037855a","A",18.69,0.0,0],["Tulio Gruska Benevides Figueiredo","0035398k","A",18.69,0.0,0],["Francisco Edilberto de Sousa Teixeira Filho","0035752c","ANP",17.73,0.25,0],["Ycaro Coelho Pereira","0040462h","A",18.44,0.25,0],["Pedro Angelo Fontes Cavalcante","0037933f","A",18.56,0.0,0],["Julia Paiva Pontes","0041957g","A",18.48,0.0,0],["Francisco Jackson Barros Silva","0041212a","N",17.69,0.25,1],["Jose Ednaldo Calixto Silva","0067994k","AP",17.56,0.25,1],["Thiago Macedo Araujo","0041695c","A",18.44,0.0,0],["Maria Carolinna Bastos Santana Torres","0064890f","I",13.91,0.0,1],["Jennypher Claudia dos Santos","0067697e","AN",17.69,0.25,0],["Lanna Beatriz Sampaio Praciano","0039569j","A",17.91,0.5,0],["Servulo Marcel Hora Alves","0039545g","A",18.13,0.25,0],["Liane Gabriela Frota Soares","0040143c","A",18.06,0.25,0],["Carlos Eduardo Monteiro de Paiva","0074400b","AN",17.04,0.75,0],["Marcos Vinicius dos Reis Almeida","0050214f","A",18.06,0.25,1],["Pedro Guimaraes Saboia","0038973a","A",18.01,0.25,0],["Monique Martins Targino Alves","0044304j","AP",17.25,0.25,1],["Diego Santana de Castro","0041948f","AN",17.73,0.0,1],["Julia Maciel de Oliveira Brito","0041062h","NQ",15.38,0.0,0],["Brenda Jade Santos Barbosa Torquato","0063073b","A",18.25,0.0,1],["Anacaroline Pinheiro Goncalves","0065870e","A",18.0,0.25,0],["Camila de Santana Lima","0033648i","N",17.37,0.25,0],["Ana Beatriz Frota Linhares","0038235i","A",17.94,0.25,0],["Esther Catarina Conceicao Ferreira","0065229f","A",18.18,0.0,0],["Misael Abzadaque Lima de Oliveira","0035338d","A",17.93,0.25,0],["Cicero Yego Leandro do Nascimento","0067973c","AN",17.37,0.25,0],["Rodrigo Anderson Marques","0037702i","AP",17.47,0.0,0],["Igor Lucas Lebre de Souza","0036707c","A",18.13,0.0,0],["Rafael Teotonio Gondim Maia","0051891i","A",18.12,0.0,1],["Mariana Silva de Oliveira","0036048k","AN",17.48,0.0,1],["Adriano Pinheiro Nantua Bezerra","0033639h","A",17.8,0.25,0],["Savio Leandro de Carvalho Sobreira","0034258a","A",18.03,0.0,0],["Luan David de Sousa Barbosa","0034785b","A",18.01,0.0,0],["Pedro Ulisses dos Reis Muniz","0073923g","AN",17.28,0.0,0],["Mara Juliana Soares de Oliveira","0041070g","A",17.75,0.25,1],["Raylson Loiola Barbosa","0076192i","A",17.74,0.25,0],["Ana Carla Rocha Silva","0036374b","P",17.0,0.25,1],["Isabelle Cristina Bertuleza Sousa","0033669f","N",17.25,0.0,0],["Larissa Sales Quintela","0036892b","A",17.73,0.25,0],["Andre Luna Alencar Filho","0054005f","A",17.69,0.25,1],["Pedro Mendes Leao","0052148g","A",17.68,0.25,1],["Leticia Vivianne Duarte Cavalcante","0033191a","N",16.94,0.25,1],["Marilza Gabriella Quirino de Sa Silva","0041494d","I",13.85,0.0,1],["Victor de Oliveira Andrade","0033761e","A",17.68,0.25,0],["Vanessa Soares de Andrade","0034350k","A",17.18,0.75,1],["Magson Luiz Sobral Moura","0049056i","AN",16.91,0.25,0],["Winny Krisia Marques Cavalcante","0067715c","P",16.81,0.25,1],["Maria Eduara Roberto de Sena Lima","0036087j","A",17.66,0.25,0],["Gustavo de Freitas Goncalves","0033664g","A",17.65,0.25,0],["Rychardson Lucas Vasconcelos Siqueira","0073726e","AN",17.13,0.0,0],["Marcus Vinicius Souza Soares","0052199b","A",17.14,0.75,1],["Mateus Steffano Urquiza Fernandes","0041183i","A",17.88,0.0,0],["Elyne Eulalya Mendonca Lopes","0040531a","A",17.54,0.25,0],["Ingrid Freitas dos Santos","0050967k","N",17.0,0.0,0],["Enzo Meireles Santos","0052002a","A",17.78,0.0,0],["Enzo Mamede Costa Siqueira","0052721k","A",17.49,0.25,0],["Julia Alves de Andre","0052077j","NP",16.18,0.75,1],["Manoela Medeiros Rodrigues","0039972d","AN",16.96,0.0,0],["Ana Beatriz Vale Gomes","0034505c","A",16.99,0.75,1],["Luiza Alves Cabral Silva","0067481d","A",17.69,0.0,0],["Max Victor Goncalves Lima","0033620i","A",17.44,0.25,0],["Matheus Bezerra de Melo","0052260a","N",16.71,0.25,0],["Vinicius Wdson do Vale Rocha","0037434j","A",17.44,0.25,0],["Vitor Hugo Jales do Nascimento","0041441e","A",17.44,0.25,0],["Silvia Raissa Xavier Diniz","0065369k","A",17.68,0.0,1],["Yasmin de Maria Costa Guimaraes","0034707d","AN",16.71,0.25,1],["Crisia Taila de Azevedo Vaz","0054150d","AP",16.65,0.25,0],["Domingas Correia Moraes","0038607i","NQ",13.68,0.25,1],["Maria Fernanda Siqueira Gama","0063401d","A",17.43,0.25,0],["Gabriel Lucas Pereira Soares","0037109j","N",16.94,0.0,1],["Carlos Andre Rocha","0040526h","A",17.42,0.25,0],["Arthur Gomes Pontes","0067422j","A",17.63,0.0,0],["Isabella Lopes Vaz","0041170k","A",17.38,0.25,0],["Renato Paniagua Sales da Silva","0050058g","AN",16.69,0.25,0],["Ana Lorena Sales Moura","0050785e","A",17.37,0.25,1],["Antonia Sanarah Alves Timbo","0034358e","I",13.75,0.0,1],["Raissa Barbosa Pires Brandao","0040214k","AP",16.6,0.25,0],["Anna Karollina da Costa e Silva","0052404j","N",16.68,0.25,1],["Miguel do Nascimento Lucena","0063004e","A",17.36,0.25,1],["Bianca Paula Chaves Cavalcante","0036648b","A",17.09,0.5,1],["Joao Regis Junior da Silva","0048874e","A",17.3,0.25,0],["Antonia Juliana Rodrigues Martins","0052221b","N",16.92,0.0,1],["Maria Julya Lopes Callado","0044325g","A",17.54,0.0,0],["Francisco Ryan Soares de Holanda","0034626d","A",17.52,0.0,0],["Joanna Marilia Correia Matos","0051512h","A",17.48,0.0,0],["Ellen Cristine Mendes Oliveira","0049587g","AN",16.66,0.25,0],["Joao Paulo Ponte Pierre","0041409i","AP",16.69,0.0,0],["Jessica Pessoa Vaz","0035693b","A",17.2,0.25,0],["Matheus Recamonde Maraschim","0039251a","A",17.44,0.0,0],["Jairo Fernando dos Santos Cosmo","0065177b","AN",16.86,0.0,0],["Renata Karen Gomes da Fonseca","0048976b","A",17.16,0.25,1],["Amanda Sherida Fernandes Borges","0036285c","A",17.38,0.0,0],["Arthur Cavalcanti Teixeira Coelho","0065764f","A",17.38,0.0,0],["Francisco Matheus Caetano de Oliveira","0041914k","AN",16.61,0.25,1],["Ana Carolina Alves Araujo","0038290f","A",17.13,0.25,0],["Maria Bianca Ribeiro de Assis","0073489f","A",17.13,0.25,1],["Camila Freitas Carvalho","0044374i","P",16.44,0.25,0],["Laysa Chaves Soares","0073757e","AN",16.61,0.25,0],["Felipe de Abreu Fortaleza","0033730e","A",16.63,0.75,0],["Kaio Jose Mendes Monteiro","0038561k","A",17.36,0.0,0],["Benjamin Eugenio Cavalcante Lima","0034845e","A",17.11,0.25,1],["Lilia Raquel Nogueira da Silva","0074382d","AN",16.61,0.25,1],["Larissa Falcao Aragao","0041548a","A",17.11,0.25,0],["Lazaro Vieira da Silva","0037741h","A",17.11,0.25,0],["Marcia Medeiros Bernardino Bezerra","0063644h","A",17.11,0.25,0],["Linique Bastos Prospero","0036982c","AN",16.61,0.25,1],["Philippe dos Santos de Lima","0054807i","AP",16.67,0.0,0],["Marcos Antonio Mendes da Silva Junior","0035623c","A",17.11,0.25,1],["Rayane Gadelha Rafael Sales","0035735c","I",13.44,0.25,1],["Marilia Francelino Alcantara","0035591e","AN",16.61,0.25,0],["Joao Victor Diniz Pequeno","0051675c","A",17.09,0.25,0],["Sayonara Kaylanne Pacheco Lopes","0034454a","A",17.31,0.0,0],["Kilma Rayssa Goncalves Viturino","0063395b","A",17.06,0.25,0],["Sofia de Oliveira Diniz Souza","0068148j","AN",16.61,0.25,0],["Anita Vitoria Pereira dos Santos Timoteo","0051946h","A",17.29,0.0,1],["Macel Silva Dias","0065904g","A",17.04,0.25,1],["Francisco Edmilson Teles Neto","0075783e","AP",16.37,0.25,0],["Maria Eduarda de Albuquerque Silva","0035624e","AN",16.8,0.0,0],["Ana Luiza dos Santos Matos","0040696k","Q",13.41,0.0,0],["Pedro Arthur da Costa Araujo","0039399k","A",17.04,0.25,1],["Sofia Alpes Cabral","0051591h","A",17.04,0.25,1],["Lindeverton Nunes Almeida","0068137e","N",16.53,0.25,1],["Isabel Cristina de Souza Marreira Ribeiro","0037115e","A",17.03,0.25,1],["Marina Mariano Torres Mota","0036495c","A",17.03,0.25,0],["Vinicius Chagas Freire","0076293d","A",17.03,0.25,0],["Daniel Martins de Oliveira","0050243b","N",16.5,0.25,0],["Joao Pedro Alves Magalhaes Pinto","0044296d","P",16.16,0.25,0],["Geovana Maria de Oliveira","0037902f","A",17.01,0.25,1],["Deyvid Rodrigues da Silva","0063023i","A",17.24,0.0,0],["Daniel Monteiro da Costa","0049452f","AN",16.48,0.25,1],["Beatriz Melo Juca","0037501j","A",17.18,0.0,0],["Rubens Moura Colares","0041371j","A",16.93,0.25,0],["Eduardo de Castro Amadio","0037678e","A",16.92,0.25,1],["Maria Julia Sousa Monteiro da Silva","0051134b","N",16.43,0.25,1],["Vitoria Almeida Pereira Lemos","0034610k","A",16.91,0.25,0],["Francisco Diego Lima Queiroz","0038992e","A",16.9,0.25,0],["Carlos Rerisson Farias de Souza","0074838j","AP",16.14,0.25,0],["Israelania Candido Macedo","0064967d","AN",16.41,0.25,0],["Maria Claudia Nunes Martins","0038101j","A",16.9,0.25,0],["Ana Karoline Pereira Silveira","0074556k","A",17.14,0.0,0],["Gustavo Diogenes Kataoka","0040248f","A",17.11,0.0,0],["Caio Henrique da Silva Mendes","0064755k","N",16.63,0.0,0],["Maria Euzene Rodrigues","0039343f","I",12.98,0.25,1],["Lucas Menezes Goiano","0041887a","A",17.11,0.0,0],["Almir Almeida Magalhaes Filho","0050014i","A",16.86,0.25,1],["Saulo Vinicius da Silva Donato","0034202g","N",16.38,0.25,1],["Artur de Medeiros Antas","0039236e","AP",16.36,0.0,1],["Eduardo Vinicius de Oliveira","0067464d","A",16.35,0.75,1],["Karolinny Dias Ramos","0074070g","A",17.09,0.0,1],["Felipe Lustosa Rabelo","0039203a","AN",16.61,0.0,1],["Victor Yukio Maruiti","0041932b","A",17.09,0.0,1],["Mariana Oliveira dos Santos Pereira","0050216j","A",17.07,0.0,1],["Ivynna Arruda Lopes","0074187f","A",16.82,0.25,0],["Joao Rafael Gois Alves Cezario","0067774h","N",16.33,0.25,0],["Evelyn da Assuncao Lima Mapurunga","0034624k","A",17.06,0.0,0],["Marcos Fernandes Queiroga Costa e Silva","0051636d","A",17.06,0.0,1],["Lucas Diogenes Veloso Ferreira","0037529j","P",16.36,0.0,0],["Leticia de Almeida dos Santos","0040732k","N",16.29,0.25,1],["Carmen Cavalcante Rebelo","0035645b","A",16.81,0.25,1],["Fabiana Martins da Silva","0033531j","A",16.79,0.25,0],["Joao Batista de Morais","0052734i","A",16.79,0.25,1],["Aurea Beatriz Vasconcelos das Neves","0074135i","AN",16.26,0.25,0],["Luis Fernando Ribeiro Serpa Fernandes Vieira","0050812d","A",16.79,0.25,0],["Ramicyele Alencar Marques","0067961g","A",16.79,0.25,0],["Gabriel de Queiroz Sabino","0035612i","A",17.03,0.0,0],["Luiz Felipe Serra Santos","0036262b","AN",16.24,0.25,1],["Tallita Batista Mendes","0033336a","P",15.99,0.25,1],["Amanda Diniz Santos","0067453j","NQ",12.61,0.25,1],["Ivina Pereira Neres","0033223j","A",16.78,0.25,1],["Ludgard Vinicius Andrade Pacheco","0039005h","N",16.23,0.25,0],["Virna de Castro Silva","0041865b","A",17.01,0.0,0],["Iana Catarina Sampaio Viana","0034176j","A",16.75,0.25,1],["Amanda Ester Barreto Andrade","0040756c","A",16.74,0.25,1],["Vitoria Area Leao Mesquita","0039930j","N",16.2,0.25,0],["Iago Bispo Mendes Souza","0050966i","I",13.11,0.0,1],["Felipe Savio Gomes da Costa","0039326f","A",16.74,0.25,1],["Miguel Victor Neto","0041858e","P",15.86,0.25,1],["Jose Raimundo Donato Neto","0065345h","AN",16.18,0.25,1],["Flavia Quesada Aragao Rodrigues","0038711d","A",16.98,0.0,0],["Gabriel e Silva Ferreira Leoncio","0035543e","A",16.98,0.0,0],["Lucas Nogueira Cavalcante","0033133i","A",16.98,0.0,0],["Renata Tamires de Queiroz Lima","0049836b","AN",16.17,0.25,1],["Andre Gustavo Miranda Aguiar Carvalho","0074917f","A",16.73,0.25,1],["Julia Philomeno Gomes Pimentel","0039215h","A",16.69,0.25,0],["Moises Viktor Leite Evangelista","0041075f","A",16.43,0.5,1],["Mylena Cristina Vercosa Gomes","0042001d","N",16.16,0.25,1],["Thays Magalhaes Pereira","0041792a","P",16.09,0.0,0],["Ana Luiza Cialdini Martins Fontoura","0034049c","A",16.67,0.25,0],["Claudio Erlon Castro Tavares","0040645e","A",16.66,0.25,0],["Joubbert Jose Santos Moura","0063691f","AN",16.14,0.25,1],["Igor Pablo Freire Melo","0041000h","A",16.66,0.25,0],["Marcos Paulo Marinho Santos","0039447g","A",16.9,0.0,0],["George Hamilton Mauricio Maia","0051297h","A",16.65,0.25,1],["Andressa Valeria de Faria Soares","0041096c","N",16.38,0.0,1],["Walterlim Rodrigues dos Santos Junior","0052457i","A",16.65,0.25,0],["Jonathan Renauro Guedes Lucas","0037587b","A",16.64,0.25,1],["Natalia Alencar Meira","0054167j","P",15.82,0.25,0],["Rubens Alencar Cosme","0074081a","N",16.38,0.0,1],["Mayara Melo Soares","0065581i","A",16.64,0.25,0],["Henrique Mendes dos Santos","0067616a","A",16.63,0.25,0],["Anna Larysse Muniz Brito","0035345a","A",16.87,0.0,0],["Igor Leonardo Vitorino Silva","0035021h","AN",16.35,0.0,1],["Yuusei Hoshino","0041574b","A",16.62,0.25,0],["Bianca da Silva Almeida","0074440c","A",16.86,0.0,0],["Joao Alves da Silva Neto","0074188h","A",16.86,0.0,0],["Isabella Costa Guimaraes","0041985a","N",16.34,0.0,0],["Lucas dos Santos Alves","0063300i","AP",15.74,0.25,1],["Victor Gabriel Lisboa de Sa","0063364b","I",13.1,0.0,1],["Davi Candido Neves","0065225i","A",16.61,0.25,0],["Igor Samuel Silva Fernandes","0038031d","N",16.09,0.25,1],["Lucas de Oliveira Carneiro","0074383f","A",16.61,0.25,1],["Lara Rodrigues Lima Aguiar","0065625c","A",16.84,0.0,0],["Carlos Samuel Peixoto Candea","0041331i","A",16.59,0.25,1],["Ravick Lourenco Lira da Silva","0063309e","N",16.3,0.0,1],["Leticia da Silva Leite","0036358d","A",16.57,0.25,1],["Debborah Duarte Morais Pinheiro","0035183a","A",16.56,0.25,0],["Viviane Souza de Almeida","0048895b","P",15.73,0.25,1],["Genesio Ribeiro da Silva Neto","0050469f","N",16.04,0.25,0],["Laysa Lopes Dias","0048964f","NQ",12.29,0.25,1],["Cecilia Sales Uchoa","0038754k","A",16.8,0.0,1],["Erika Lindalva Pereira da Costa","0067844c","A",16.8,0.0,1],["Joao Victor Cardoso de Melo","0039960h","N",16.28,0.0,1],["Francisco Jesse Carneiro Lima","0063437c","A",16.55,0.25,0],["Jose Willy Gomes Gadelha","0040314d","A",16.78,0.0,1],["Luan Lima Duarte","0074742h","A",16.77,0.0,1],["Luis Olaniyi Faluyi","0033323c","AN",16.28,0.0,1],["Francisco Gustavo Cavalcante Barros","0034894g","AP",15.66,0.25,1],["Gabriela Nobre Moreira","0035755i","A",16.51,0.25,0],["Iasmin Ferreira do Nascimento","0033311g","A",16.74,0.0,1],["Geovane Pedreira da Conceicao","0035067j","N",16.03,0.25,1],["Geomara Silva Sousa","0052549c","A",16.49,0.25,1],["Joao Flavio Lima","0037340a","A",16.49,0.25,1],["Thiago Feitoza Jeronimo Leite","0040627c","A",16.49,0.25,1],["Ana Beatriz de Jesus Silva Ferreira","0038065j","N",16.25,0.0,1],["Giulia Mello Caminha","0033734b","A",16.48,0.25,1],["Julio Cesar Albuquerque Mendes Filho","0035484d","A",16.48,0.25,0],["Karoline Viana Teixeira","0074693j","P",15.54,0.25,1],["Anisvaldo Ferreira de Araujo","0050896c","N",16.0,0.25,1],["Marcus Vinicius Saraiva Martins Filho","0034959i","A",16.48,0.25,0],["Maria Isabella de Oliveira Souza","0038681j","A",16.48,0.25,0],["Maria Leticia Cavalcante Macedo","0063648e","I",12.84,0.25,1],["Maria Cristiane Meireles de Oliveira","0050103h","N",16.0,0.25,0],["Thaina Santos Freitas","0037820d","A",16.71,0.0,1],["Emmanuel Bessa de Santiago Goncalves","0033598i","A",16.69,0.0,1],["Renata Araujo Moura","0040683b","A",16.44,0.25,1],["Antonio Fabio Mateus da Mota","0035467d","N",16.23,0.0,1],["Layanny Andrade Macedo","0065457h","P",15.54,0.25,1],["Bernardo Sodre Carneiro Leao","0036514c","A",16.68,0.0,1],["Anne Mikaelle Lustosa Elvas Machado","0050897e","A",16.43,0.25,0],["Guilherme Santos Albuquerque","0039289d","N",16.23,0.0,1],["Romulo Romualdo de Oliveira","0065804c","A",16.66,0.0,0],["Maria Luana Albuquerque Medeiros","0074197i","A",16.41,0.25,1],["Ayrton Cordeiro de Sousa Absalao","0038652c","A",16.39,0.25,1],["Marina Fernanda Lima Campos","0036179d","N",15.96,0.25,1],["Lara Maria Luna Lessa","0039965g","A",16.63,0.0,0],["Sofia Maria Bessa de Carvalho","0038978k","A",16.63,0.0,0],["Monique Nascimento Adomaite","0040152d","P",15.48,0.25,1],["Bruno Augusto Trindade Almada","0035177f","AN",15.95,0.25,1],["Leticia de Oliveira Marques","0065509a","A",16.38,0.25,1],["Vinicius Mota de Melo Santos","0049481b","A",16.38,0.25,0],["Gessyka Maria Pinto Pinheiro de Souza","0063733g","A",16.62,0.0,1],["Ingrid Raissa Carneiro do Carmo","0035068a","N",15.95,0.25,1],["Fernanda Di Paula da Silva de Oliveira Albuquerque","0074145a","A",16.61,0.0,0],["Joyce Rayane Alves dos Santos","0037253f","A",16.61,0.0,0],["Gabriel Germano Maciel","0067983f","A",16.36,0.25,1],["Loran Silva de Oliveira","0050809d","AN",15.94,0.25,0],["Laura Cristina Leite de Souza","0041352f","P",15.46,0.25,1],["Francisco de Assis Severo Lima","0064874h","NQ",11.92,0.25,1],["Gustavo Dapont de Moura","0039290k","A",16.36,0.25,0],["Ruana Rios Moura","0034997f","N",15.93,0.25,1],["Karina Inacio de Lima","0063749k","A",16.36,0.25,0],["Maria Beatriz Fescina","0050322i","A",16.36,0.25,1],["Pedro Robalinho Montalverne","0051850f","A",16.36,0.25,0],["Dilson Lazaro Lomanto Pinheiro Filho","0065441d","N",16.16,0.0,1],["Tiago de Anchieta Alves Barboza","0063910c","I",12.17,0.75,1],["Wendell de Lima Pinheiro","0063065c","A",16.6,0.0,1],["Marina Ofranti Trindade","0051525f","P",15.46,0.25,1],["Antonio Anderson Ferreira","0051288g","N",15.91,0.25,1],["Bruna Melo Rocha","0073813k","A",16.35,0.25,1],["Beatriz Sousa dos Santos","0038790d","A",16.33,0.25,1],["Laryssa Paz Nunes","0033902h","A",16.33,0.25,0],["Carla Christina Ramos Duarte","0063575d","N",15.91,0.25,0],["Clarissa Diniz Diogenes","0052598e","A",16.56,0.0,1],["Edmar Pedro dos Santos Neto","0035059k","A",16.31,0.25,1],["Fabio Ozeas da Luz","0063631j","A",16.31,0.25,1],["Tiago Santos Simples de Oliveira","0039466k","N",16.13,0.0,1],["Tiago Luna Almeida","0052456g","P",15.46,0.25,1],["Ivanildo da Silva Lima","0034578h","A",16.31,0.25,1],["Eugenia Noeli de Castro Fontenele","0074608d","A",16.55,0.0,0],["Francisco Satiro de Alcantara Junior","0038828c","N",15.86,0.25,1],["Yasmim de Carvalho Albuquerque","0033237j","A",16.55,0.0,0],["Pavla Ravenna Varela Belem Macedo","0063507i","A",16.3,0.25,0],["Josias Alves Rodrigues","0038356j","A",16.29,0.25,0],["Mayla Mayara Sabino de Carvalho","0065357d","AN",15.86,0.25,1],["Caio Gustavo de Almeida","0039200f","A",16.28,0.25,0],["Brena Kelvia Lima de Morais","0050625e","A",16.26,0.25,1],["Almerinda Alves de Oliveira","0054309d","AP",15.7,0.0,1],["Paulo Henrique Menezes Vilar","0063760j","AN",16.1,0.0,0],["Ludmilla Costa Carneiro","0052626f","A",16.5,0.0,1],["Renata da Rocha Avelino","0034083c","A",16.25,0.25,0],["Tallison do Nascimento Sousa","0033630a","A",16.24,0.25,1],["Gabriel Luiz Araujo dos Santos","0035963e","N",16.09,0.0,1],["Ana Julia Lopes Palmeira","0068047d","A",16.48,0.0,1],["Herbert Ryan Rodrigues dos Santos","0065058e","A",16.48,0.0,0],["Ingrid Oliveira da Costa","0074231e","A",16.48,0.0,1],["Tamara Beatriz Santos","0074668k","N",15.83,0.25,1],["Luiz Murta Silva Neto","0035331a","AP",15.69,0.0,0],["Tawyra Carlos Santos Nava Guajajara","0049030b","I",12.46,0.25,1],["Lidia Maria Moreira Saraiva","0037120i","A",16.23,0.25,1],["Eder Arruda de Oliveira","0049962g","AN",15.82,0.25,0],["Maria Nivanda Araujo Gadelha","0034074b","A",16.23,0.25,0],["David Veras Bezerra","0041585g","A",16.22,0.25,0],["Marcelo Fernandes Menescal de Lima","0041419a","A",16.22,0.25,1],["Antonio Pedro Casqueiro dos Santos","0050128b","N",15.81,0.25,1],["Raul Andrade da Costa","0037665g","A",16.22,0.25,0],["Thiago Matias Santos Freitas","0040400h","A",16.46,0.0,1],["Rebeca Melo Rolim","0035982i","AP",15.68,0.0,1],["Lucia Raquel Silva Ferreira","0037919a","N",15.81,0.25,1],["Izabella Pereira Lima","0038879i","Q",11.78,0.25,1],["Rodrigo Dantas Macedo","0051033g","A",16.21,0.25,0],["Mateus da Silva Albuquerque","0065855i","A",16.44,0.0,0],["Allana Maria Fortuna Araujo","0074210h","N",15.31,0.75,1],["Fernanda Coutinho Duarte","0049001f","A",16.19,0.25,1],["Francisco Erivan Fernandes Junior","0049134c","A",16.19,0.25,0],["Rebecca Freitas de Carvalho","0036369i","A",16.43,0.0,1],["Valeria Monique Lisboa Correa","0041311c","N",16.04,0.0,0],["Hugo Hamid Moreira Bravos","0040714i","P",15.36,0.25,1],["Ana Ligia Oliveira Pinheiro","0036464c","A",16.18,0.25,0],["Ana Clara Bezerra Loiola","0035173i","A",16.16,0.25,0],["Joao Igor Sampaio da Silva","0049326a","N",15.79,0.25,0],["Antonio Albuquerque da Silva","0074398h","A",16.16,0.25,0],["Mirla Lima da Silva","0076594g","A",16.16,0.25,1],["Barbara Marques Freitas","0051383a","A",16.13,0.25,1],["Kassiely Veronica de Moura Conceicao Lima","0034953h","N",15.79,0.25,1],["Renan Sales Peixoto","0035253g","A",16.13,0.25,0],["Gabriel Diogo de Sampaio","0049091k","A",16.37,0.0,1],["Antonio Samaronio Pereira de Sousa Filho","0037833b","P",15.58,0.0,0],["Marcos Rubens Silva de Sousa","0036408d","N",15.78,0.25,0],["Naezio Noronha Guedes","0064687i","A",16.37,0.0,0],["Leonardo Jonathan de Lima Santana","0065028g","I",12.63,0.0,1],["Larissa Batista Melo","0049882i","A",16.11,0.25,0],["Gabriella Costa Carneiro Machado","0038953f","N",16.0,0.0,1],["Vanessa Menezes de Souza Calixto","0048938e","A",16.1,0.25,1],["William Macario dos Santos","0063865b","A",16.34,0.0,0],["Alberto Vitor Bezerra Araujo Souza","0038983d","A",16.09,0.25,0],["Luiza Beatriz Fortunato Vicente","0065246f","N",15.74,0.25,1],["Jonathan Araujo Santiago Lima","0033606d","AP",15.54,0.0,1],["Bruna Pereira de Freitas","0074100a","A",16.08,0.25,0],["Lara Karissa Araujo Lopes Sodre","0036355i","A",16.08,0.25,0],["Myllena Mayara de Jesus Santana Silva","0067907a","N",15.74,0.25,1],["Thatiana Katiussia de Sousa Veras","0074207h","A",16.08,0.25,1],["Eaden Macedo Luna Neto","0049357a","A",16.07,0.25,0],["Juliana Veras Leitao","0037161a","A",16.31,0.0,0],["Valdenis Rufino Ferreira Soares","0054174g","N",15.74,0.25,1],["Alesandro Costa Morais","0036024h","A",16.06,0.25,0],["Brenda Nayla de Araujo Freitas","0039882c","A",16.06,0.25,1],["Haryel Pabllo da Silva Beserra","0066837a","P",15.24,0.25,0],["Andrey Mesquita Barros","0037773j","N",15.73,0.25,1],["Francisco dos Santos Paulino","0037580j","A",16.06,0.25,0],["Hidalgo Xavier de Sousa Reboucas","0033480h","A",16.06,0.25,0],["Jorio Serra Maia Junior","0036301h","A",16.06,0.25,1],["Cynthia Maria Araujo Freitas","0033833d","N",15.73,0.25,1],["Tercio Pereira de Lucena Junior","0034349d","A",16.06,0.25,1],["Claudio Andre Pereira Lessa","0048996h","A",16.29,0.0,0],["Rafaela Ferreira Franca","0050440d","A",16.04,0.25,1],["Hyara Ketley de Oliveira Sousa","0039074e","N",15.73,0.25,1],["Wille Alves Monteiro Conceicao","0065429c","P",15.24,0.25,1],["Ludmilla dos Anjos Pereira","0035872b","NQ",11.7,0.25,1],["Luan da Silva Amorim","0065074c","A",16.03,0.25,1],["Lucas Sampaio Dias Lourenco","0038628f","N",15.73,0.25,1],["Vitoria Diogenes Peixoto de Alencar P Agrello","0034041i","A",16.03,0.25,1],["Gabriel de Lima Silva","0065769e","A",15.53,0.75,1],["Irlando Tadeu de Melo Filho","0067938a","I",12.24,0.25,1],["Mayza Barboza da Silva","0064839f","N",15.73,0.25,1],["Alisson Silva Pereira","0035403k","A",16.02,0.25,0],["Andressa Sampaio Mota","0041095a","A",16.26,0.0,0],["Gabrielly de Oliveira Matos","0044291e","P",15.21,0.25,1],["Andre Vinicius Magalhaes Caminha Alves","0051095g","N",15.71,0.25,1],["Andrey Kaiki de Almeida Mesquita","0040172j","A",16.01,0.25,1],["Alexandre Fonseca de Freitas","0041636i","A",15.99,0.25,1],["Bruna Saboia Ximenes Rodrigues","0074836f","A",15.99,0.25,0],["Camila Vale Oliveira","0038945g","N",15.94,0.0,1],["Vitor Pontes Correia","0049120c","A",15.98,0.25,0],["Ivana Nogueira Fernandes Dantas","0037117i","A",15.73,0.5,0],["Ana Beatriz Batista Coelho","0041449j","A",16.21,0.0,0],["Lucas Franco Reis","0035833c","AN",15.69,0.25,1],["Isabel Ximenes Teixeira Mendes","0054314h","P",15.21,0.25,1],["Ari Batista Macedo Costa","0067421h","A",16.21,0.0,1],["Joas da Silva Lima","0074412i","A",15.95,0.25,0],["Emily Bastos Lobo Cardoso","0036564g","N",15.92,0.0,0],["Camille de Moura Andrade","0041905j","A",15.94,0.25,1],["Demetrios de Alencar Rodrigues","0065388d","A",15.94,0.25,0],["Filipe Jose da Rocha Passos Sobral","0036434e","A",16.18,0.0,0],["Lucas Bittencourt Lima","0036632i","N",15.92,0.0,1],["Honodi Araujo Silva Filho","0050917g","A",16.18,0.0,0],["Kalyna Barros de Carvalho","0039338b","A",16.18,0.0,0],["Joao Pedro Mendonca Cunha","0066839e","NP",15.21,0.25,1],["Lavinia Mendes Dias","0034184i","N",15.67,0.25,1],["Amanda Leal Castelo Branco","0035885k","A",15.93,0.25,0],["Bruna Almeida Magalhaes Bertazzo Silveira","0036150b","A",15.93,0.25,0],["Matheus Cavalcante Lima","0033388i","A",15.93,0.25,1],["Leonardo Henrique Magalhaes do Amaral Batista","0040853a","N",15.67,0.25,0],["Matheus Mesgrael Soares Targino","0034442e","A",15.93,0.25,0],["Monique Tavares de Figueiredo Albuquerque","0039191i","A",15.93,0.25,0],["Lucas Valverde Santos","0039785e","A",16.16,0.0,0],["Mateus Camilo da Silva","0074540g","N",15.91,0.0,1],["Alfha Carlos Dantas","0041446d","P",15.18,0.25,1],["Janeska Madalosso de Souza","0048960i","I",12.31,0.0,1],["Everton Machado Bezerra","0039125g","A",15.91,0.25,1],["Bruno Alves Beserra","0036198h","N",15.66,0.25,0],["Francisco Nilson Moura das Chagas Filho","0039241i","A",15.9,0.25,0],["Thais de Souza Bulhoes","0050390d","A",15.88,0.25,0],["Bianca Ferreira Freire Rufino","0034715c","A",16.12,0.0,0],["Bruno Pereira Magalhaes","0037568i","N",15.66,0.25,0],["Joao Vitor Carvalho e Cerqueira","0052243a","A",15.87,0.25,1],["Julia Lage Moura","0036854e","A",15.87,0.25,1],["Maria Paula Cardoso da Rocha","0036634b","P",15.41,0.0,1],["Luis Davi de Mesquita Abreu Torres","0074295i","N",15.66,0.25,1],["Gilberto Nunes do Nascimento","0034367f","NQ",10.83,0.25,1],["Paulo Henrique Goncalves Lima","0067829g","A",15.87,0.25,1],["Caio Cesar Nogueira Colares","0038297i","A",16.11,0.0,0],["Eduarda Araujo de Oliveira","0050523h","N",15.65,0.25,1],["Victor Ribeiro da Luz","0035047d","A",16.11,0.0,0],["Aline Siqueira Guilherme de Lima","0062967e","A",15.86,0.25,1],["Ana Leticia Cordeiro Marques Vieira","0051987k","A",15.85,0.25,0],["Ryan Vitorino Rodrigues","0041025b","N",15.89,0.0,1],["Sarah Machado Pantoja","0038977i","P",15.16,0.25,1],["Icaro Antero Holanda Leite","0036706a","A",15.85,0.25,0],["Igor Luiz de Medeiros Dias","0034238f","A",15.85,0.25,1],["Pedro de Oliveira Castro","0033812g","AN",15.63,0.25,1],["Matheus Pereira Soares","0074704k","A",16.09,0.0,0],["Marcos Vinicius Santos Costa","0064683a","A",15.84,0.25,0],["Tales Linhares Ulisses","0037432f","A",15.84,0.25,0],["Carla Gabriele da Silva Nascimento","0074280g","N",15.61,0.25,1],["Alisson Alves Oliveira","0067417f","A",16.07,0.0,1],["Antonio Rennan Soares Holanda Lopes","0074802k","A",16.07,0.0,1],["Joao Marcel Araujo de Souza","0068169g","P",15.14,0.25,1],["Marcos Vinicius de Sousa Lima Leite","0049098c","AN",15.6,0.25,0],["Vitoria Maria Rodrigues Clementino da Silva","0065483i","I",11.91,0.25,1],["Glenda Satira Oliveira Silva","0035317g","A",16.07,0.0,1],["Ana Candida Sousa Fonseca","0033580a","A",16.06,0.0,1],["Alex Cardoso de Sousa","0035813h","N",15.82,0.0,1],["Eric Holanda Lins","0041525k","A",15.81,0.25,0],["Vitoria Hellen Sousa Oliveira","0033211c","A",15.81,0.25,1],["Felipe Amorim Costa","0050138e","A",15.79,0.25,1],["Pedro Guilherme Oliveira Pereira","0074865b","N",15.82,0.0,1],["Smyrna Honorata Alves Cardoso de Araujo","0063663a","P",15.37,0.0,0],["Fernanda Rodrigues Ferreira","0062990k","A",15.79,0.25,0],["Thiago Barbosa Gomes","0050560c","A",15.79,0.25,1],["Antonia Sabrina Braga Goncalves","0038073i","N",15.81,0.0,1],["Kauan Edwin Alves Furtado","0040438k","A",16.03,0.0,0],["Ana Caroline Silva de Almeida","0034968j","A",15.78,0.25,1],["Ana Clara Caracas de Souza Cidade","0038067c","A",15.78,0.25,0],["Francisco Erivelto Lima dos Santos","0049703e","N",15.56,0.25,1],["Ana Rayssa Braulio Cidade","0065654j","A",15.78,0.25,1],["Raimundo Conrado Braga","0037368a","A",15.78,0.25,1],["Paulo Manoel Martins da Silva Neto","0053996k","ANP",14.85,0.5,1],["Kamyla Heleny Titara Martins","0035759f","N",15.56,0.25,1],["Leticia Guedes Rodrigues de Sousa e Silva","0073837c","A",16.01,0.0,0],["Wannya Priscila Alves Fortes de Melo","0037611f","A",16.01,0.0,0],["Beatriz de Figueiredo Grilo","0036961f","A",15.76,0.25,1],["Debora Santos de Souza","0035311f","N",15.8,0.0,0],["Raissa Santana Silva","0065583b","A",15.76,0.25,1],["Alycia Maria da Silva Sousa","0033703b","A",16.0,0.0,0],["Georgia Lucia Pinheiro Jovino","0049322d","A",15.75,0.25,0],["Thiago Pereira de Carvalho","0039989j","N",15.55,0.25,1],["Leonardo Mitoura Moreira","0035973h","AP",15.01,0.25,0],["Daiana Vieira de Jesus","0041048c","NQ",10.64,0.0,1],["Larissa de Freitas Silva","0049329g","A",15.99,0.0,1],["Denis Souza Frazao","0074361g","AN",15.79,0.0,1],["Lucas Torres Viana","0037419c","A",15.99,0.0,1],["Matheus Dantas Gomes de Lemos","0037655d","I",12.1,0.0,1],["Pedro Elpidio Gadelha Guimaraes Pinheiro","0034915k","A",15.99,0.0,1],["Gabriella Ivanise Carvalho Araujo","0035065f","N",15.79,0.0,0],["Bruno Vinicius Gomes de Lemos","0035782a","A",15.74,0.25,0],["Samila Matos Souza","0051812i","A",15.74,0.25,0],["Rodrigo Gomes Barros","0034257j","P",15.01,0.25,0],["Renata Barros Bernardo","0036228b","N",15.79,0.0,1],["Samila Raiane Alves Ramos Gomes","0073927d","A",15.69,0.25,1],["Andrea Pereira de Sousa","0065818c","A",15.68,0.25,1],["Manuel Henrique de Padua Sousa Paz Sampaio","0041124d","A",15.68,0.25,1],["Rudimilly Barbosa Lucena da Silva","0039802a","AN",15.79,0.0,0],["Roberto Matheus Araujo da Cruz","0074909g","A",15.92,0.0,0],["Victor Albuquerque de Mendonca","0038341h","A",15.92,0.0,0],["Isadora Almeida Vieira de Mello","0038553a","A",15.67,0.25,1],["Jose Carlos dos Santos","0074456g","AN",15.53,0.25,1],["Lycia Santos Macedo","0039446e","P",15.0,0.25,0],["Maria de Fatima Odalha Sousa Lima","0034829g","A",15.66,0.25,0],["Fernanda Rodrigues de Lima Alves Caldas","0040190a","A",15.89,0.0,1],["Warlytton Victor Saraiva Leite","0074833k","AN",15.51,0.25,1],["Rafael Costa","0035523j","A",15.89,0.0,1],["Melissa Fernandes Ferreira Emerenciano","0033913b","A",15.88,0.0,1],["Ana Debora Barbosa Matos","0033871a","A",15.63,0.25,0],["Geovanna Stefanne da Silva Dias","0034896k","N",15.74,0.0,1],["Anibal Aguiar Sobrinho","0067836d","A",15.63,0.25,1],["Valdeci Almeida Costa Filho","0038746a","A",15.63,0.25,1],["Suane Souza Carvalho","0064991a","AP",15.21,0.0,1],["Isabela Oliveira Fernandes","0036077g","N",15.74,0.0,1],["Yara Fernandes Paz de Azevedo","0063113j","A",15.63,0.25,0],["Julio Marques da Silva Neto","0049011i","A",15.62,0.25,1],["Maria Eduarda Silva Mota","0038636e","A",15.86,0.0,0],["Stefani Lohane do Nascimento","0064593k","N",15.74,0.0,1],["Roberta Sara Riotinto Bezerra","0034086i","A",15.6,0.25,1],["Fernanda Lemos Alves","0037962b","A",15.59,0.25,1],["Ericleia Vamila da Silva Oliveira Souza","0065883c","PI",12.09,0.0,0],["Carmem Nazare de Farias Rocha","0073895f","N",15.73,0.0,1],["Alvaro Costa Benevides Rocha","0051283h","P",14.96,0.25,1],["Francisco Ytallo da Silva Saunders","0041723d","A",15.59,0.25,1],["Isabella Mota Vital Santos","0074409i","A",15.59,0.25,1],["Jacinta Vieira Santos","0064816e","N",15.73,0.0,1],["Matheus Oliveira Sousa","0052025b","A",15.83,0.0,1],["Antonio Eduardo de Almeida Neto","0034558b","A",15.82,0.0,0],["Paula Cibele Ferreira Barbosa","0036225g","A",15.81,0.0,0],["Jose Evanilson de Sousa Barros","0063491i","N",15.48,0.25,1],["Brena Maria de Souza Penha","0063327g","A",15.56,0.25,1],["Diogo Gabriel Egidio Batista","0065165f","A",15.56,0.25,1],["Ana Katharina Menezes da Costa Fernandes","0054147d","AP",14.95,0.25,0],["Ana Livia da Costa Chaves Zeferino","0073856g","N",15.46,0.25,0],["Joao Vitor Silva Macedo","0076512a","NQ",10.12,0.0,1],["Tayanna Sibele Mesquita Maciel","0049896i","A",15.56,0.25,0],["Beatriz Maria Bezerra Pereira","0039880j","A",15.54,0.25,1],["Iuri Ferreira Pimenta","0040537b","N",15.44,0.25,1],["Manoel Valdir Barros Filho","0073963h","A",15.54,0.25,1],["Gabriel Lima Magalhaes","0040303j","A",15.53,0.25,1],["Antonia Flaviana Rios Silveira","0074173f","A",15.52,0.25,1],["Lohana Nayerli Ferreira Matos","0064780j","N",15.43,0.25,1],["Cirilla Saboya Dias Lopes","0073479c","AP",14.95,0.25,0],["Beatriz Guerra Rodrigues da Silva","0065548k","A",15.76,0.0,1],["Aline Barros Lobo","0036373k","A",15.51,0.25,1],["Elayne de Jesus Lopes Vieira","0050302c","N",15.66,0.0,1],["Daniel Rocha Ferreira","0036339k","A",15.73,0.0,1],["Tamires Paulino Cesar dos Santos","0074083e","A",15.73,0.0,1],["Ana Teresa Alencar Sousa","0064752e","A",15.48,0.25,1],["Thaissa Hellen Ferreira da Costa","0035880a","AN",15.65,0.0,1],["Eduardo Ferreira Leiroz","0035896e","A",15.48,0.25,0],["Grazielly Soares da Silva","0034856j","A",15.48,0.25,1],["Thiago Barreto Portela","0054141c","P",14.95,0.25,1],["Ingrid Fabiana Lima da Luz","0065997g","N",15.4,0.25,1],["Pamella Patricia da Costa Cunha Maciel","0054133d","PI",11.36,0.25,1],["Jayane Santana Barbosa","0065891b","A",15.69,0.0,0],["Vitoria Bandeira Mota","0073728i","A",15.68,0.0,1],["Bruno Felipe Barboza de Paiva","0038601h","N",15.64,0.0,1],["Artur Campos Macedo","0049399f","A",15.43,0.25,1],["Elyson Angelo Leite","0064714h","A",15.67,0.0,0],["Viviane Costa Santos","0063514f","A",15.41,0.25,0],["Lays Oliveira da Silva Queiroz","0038919f","N",15.64,0.0,1],["Moyses Palmeira Ribeiro","0050979g","P",14.89,0.25,1],["Antonio Vinicius Sena Rolim","0067646j","A",15.4,0.25,0],["Debora Natazia Moreira Barbosa","0049696a","A",15.4,0.25,0],["Jarbas Carvalho de Araujo","0051559a","N",15.39,0.25,1],["Gabriel Patriota Chaves","0038171i","A",15.39,0.25,0],["Ana Laura Rocha Cabral","0034266k","AN",15.38,0.25,0],["Rafael Vinnicius Ferreira Matias","0067830c","AN",15.37,0.25,0],["Joana Lara de Oliveira Lobo","0063291a","N",15.63,0.0,1],["Daniel Almeida Lino","0036876d","A",15.36,0.25,1],["Francisco Wesley Pontes da Silva","0034809a","A",15.36,0.25,1],["Matheus Correa Carneiro","0052566c","AP",14.88,0.25,1],["Janio Taveira Domingos","0063685k","N",15.35,0.25,1],["Gabriel Mota Frota","0050638c","A",15.59,0.0,1],["Benvenuto de Holanda Sobrinho","0052409i","A",15.33,0.25,0],["Caroline Veras Cavalcante","0050405b","A",15.31,0.25,1],["Jefferson de Oliveira Delgado","0064770g","N",15.35,0.25,1],["Glauber Isaias Pinheiro Dantas","0038090i","A",15.54,0.0,1],["Karine Alves Rego","0036444h","A",15.29,0.25,0],["Francimara Alves dos Santos Molina","0050141e","A",15.04,0.5,1],["Juliana Jaborandy Rodrigues Sales","0040315f","N",15.35,0.25,1],["Rafael Natan do Nascimento Silva Duniz","0033281b","NP",14.85,0.25,1],["Beatriz Nayara Lopes da Silva","0067721i","I",11.13,0.0,1],["Davi Luy Rocha Bessa Oliveira","0037720k","A",15.53,0.0,1],["Mateus Neves de Jesus","0034699i","N",15.1,0.5,1],["Romain Mendes Rodrigues Ferreira","0039688g","I",10.69,0.0,1],["Janderson de Andrade Avila","0074733g","A",15.53,0.0,1],["Maria Elizangela da Silva Lima","0038572e","A",15.53,0.0,1],["Kaynan dos Anjos Camilo","0048920h","N",15.59,0.0,0],["Davila Monica Rodrigues Lima","0067607k","A",15.28,0.25,1],["Daniel Barbosa da Justa Santos","0036478c","A",15.5,0.0,1],["Marcelo Allessandro Gomes de Lima","0054217j","P",14.83,0.25,1],["Evandro Allison Almeida de Oliveira","0038247e","N",15.34,0.25,1],["Caio Vanuti Marinho de Melo","0034971j","A",15.49,0.0,1],["Darissa Herminia Soares Moraes","0051912b","AN",15.24,0.25,0],["Vinicius Jose de Lima Souza","0065206e","A",15.24,0.25,1],["Anna Laura Gomes Batista Braz","0067455c","N",15.33,0.25,1],["Karla Mara Mesquita Feitosa de Moura","0039963c","A",15.48,0.0,1],["Maria Kaliane Freitas Mota","0051524d","A",15.23,0.25,0],["Matheus Mendonca Souza de Aquino","0038683c","A",15.23,0.25,1],["Mateus Lima Chrisostomo","0035249e","N",15.33,0.25,0],["Arthur Apolinario de Araujo","0041259e","P",15.07,0.0,1],["Rafael Andrighetti Rossi","0039503b","A",15.47,0.0,1],["Joel Victor de Araujo Marinho","0033316f","A",15.22,0.25,1],["Thiago Rodrigues Sousa Mascarenha","0039633d","N",15.32,0.25,1],["Victor Alexandre Souza Santos","0037271h","A",14.97,0.5,1],["Ana Paula Goncalves da Paz","0035110g","A",15.45,0.0,1],["Bruna Albuquerque de Sousa Lima","0039319i","A",15.2,0.25,1],["Elias Emanuel Oliveira da Silva","0050136a","N",15.56,0.0,1],["Armstrong Batista Saraiva","0063875e","A",15.19,0.25,1],["Matheus Alves de Oliveira Paiva","0049156b","A",15.19,0.25,1],["Maria Leticia Monteiro Ismael","0063649g","P",14.8,0.25,0],["Matheus Alexandrino Jose da Silva","0050818e","N",15.56,0.0,1],["Rebeca Martins Andrade","0033203d","A",15.19,0.25,1],["Maira Mesquita Matos","0036669j","A",15.18,0.25,0],["Jessica Ramos Magalhaes Dantas","0052185b","A",15.15,0.25,1],["Mayara Katlen Viana Alvares","0039392h","N",15.54,0.0,1],["Ghabriel Leite Paim","0037023k","AN",15.39,0.0,1],["Thais Vitoria Furtado Sales","0036280d","N",15.29,0.25,1],["Talita Meneses de Brito","0073766f","A",15.14,0.25,1],["Tailany Fernanda Silva Vitorino","0064693d","N",15.53,0.0,1],["Manoella Varejao de Andrade","0054018d","P",14.76,0.25,1],["Ernesto Lima da Silva Filho","0039282a","A",15.13,0.25,1],["Gabriela Gomes Acioli Cesar","0038762j","AN",15.13,0.25,1],["Tatiane Fonseca Martins","0036503i","N",15.28,0.25,1],["Roberta Bruna Batista Menezes","0040623f","A",15.36,0.0,1],["Francisca Renata Frota Pacheco","0074405a","A",15.35,0.0,0],["Ricardo Bruno Beckman Soares da Cruz","0052635g","A",15.35,0.0,1],["Arthur Silva Rodrigues","0063072k","N",15.26,0.25,1],["Daniel Tanonaka Taira","0049453h","A",15.1,0.25,1],["Matheus Luis de Oliveira Tomas","0040967e","AN",15.1,0.25,1],["Flavia Leandro de Oliveira Amaral","0067879k","AP",14.99,0.0,1],["Gabriel Gomes Assis dos Santos","0035722e","N",15.23,0.25,0],["Leandra Lima Silva","0033320h","N",15.23,0.25,1],["Caroline Oliveira Queiroz Nogueira","0039999b","A",15.09,0.25,0],["Rebeca Vieira Araujo","0052574b","A",15.09,0.25,1],["Alexandre Iorubani Alves Clemente","0051432j","N",15.21,0.25,1],["Jhonas Andreazza Batista Soares","0035616f","A",15.07,0.25,1],["Natanael Simao Pimentel","0034599e","AN",15.31,0.0,1],["Amanda Ghattas Basile","0035263j","A",15.06,0.25,0],["Valdo da Cunha Sombra Junior","0035636a","N",15.21,0.25,1],["Pedro Andre Souza Santos Bispo","0035385b","AP",14.74,0.25,1],["Rafaela Frederico Coelho","0039863j","A",15.06,0.25,0],["Carise Dias Rosa","0063574b","AN",15.05,0.25,1],["Fernanda Teles Paiva de Oliveira","0052605i","N",15.45,0.0,0],["Felipe Costa Barreto","0063678c","A",15.05,0.25,1],["Joabe Feitosa Gois Junior","0054122j","A",15.29,0.0,0],["Geovani Silva de Carvalho","0050253e","AN",15.03,0.25,0],["Jessica Ohana Grigorio Barbosa Soares","0041218b","N",15.44,0.0,1],["Iandra Sutero Fernandes","0063737d","A",15.03,0.25,1],["Victor Emanuel Pereira da Silva","0038645f","A",15.01,0.25,1],["Bruno Carneiro Fernandes de Souza","0040940g","P",14.61,0.25,1],["Fernando Savigny Alves de Oliveira","0075782c","N",15.18,0.25,1],["Rakell Sterfany Monteiro Lobo","0041621g","N",15.17,0.25,1],["Samuel Queiroz Braga","0037222f","A",15.24,0.0,0],["Rodolfo de Melo Falcao Junior","0049568c","AN",15.23,0.0,1],["Diogo Vinicius Vieira Gomes","0064867k","N",15.41,0.0,0],["Franciele da Silva Agapto","0064872d","AN",15.22,0.0,1],["Marcos Vinicius Ramos de Carvalho Luz","0074001j","A",15.22,0.0,1],["Francisco Jackson Paula Gomes","0074287j","A",14.96,0.25,1],["Ana Cecilia Interaminense de Farias","0041450f","N",15.16,0.25,1],["Francisco Wiltemberg Forte Alves Filho","0054120f","P",14.61,0.25,0],["Lucas Quintela de Souza","0040265f","A",15.2,0.0,0],["Danielle Freire Lima Vanin","0038949d","A",15.19,0.0,1],["Raiany Elen Ramos do Nascimento","0039681d","N",15.16,0.25,1],["Jose Leandro de Paula Moraes","0049711d","A",15.16,0.0,1],["Larissa Costa Virginio","0049765e","A",14.91,0.25,1],["Isabelle Giulliana Oliveira do Vale","0040310g","A",15.15,0.0,1],["Giovanna Matias Cavalcante","0033603i","N",15.14,0.25,1],["Rodrigo Cavalcante Rodrigues","0036142c","A",14.9,0.25,1],["Ana Caroline da Silva Morais","0037230e","A",14.89,0.25,1],["Rafael Sulino de Castro","0040973k","P",14.61,0.25,1],["Debora do Nascimento de Sousa","0034362g","N",15.36,0.0,0],["Jessica Aguiar Nogueira","0076583b","A",14.88,0.25,1],["Manuela de Parente Almeida","0064782c","A",14.88,0.25,0],["Victor Almeida Matos de Sousa Marinho","0035167c","A",14.87,0.25,1],["Jackson Oliveira de Melo","0037338c","N",15.36,0.0,1],["Graciele Palacio Graca Sobral","0039956f","A",15.11,0.0,1],["Silvia Leticia de Melo Silva","0036773e","A",15.1,0.0,0],["Antonia Tauanne Rodrigues de Sousa","0036291i","A",14.85,0.25,1],["Francisca Michelle Santos Barbosa","0034233g","N",15.11,0.25,1],["Cicera Emilia de Alencar Leite","0044346d","P",14.53,0.25,0],["Nathalia Patricia Guruba Sidronio","0065309d","N",15.11,0.25,1],["Elizabete Soares de Amorim","0036747d","A",14.85,0.25,1],["Thalyany Alves Leite","0050833a","N",15.11,0.25,1],["Guilherme Silva dos Santos","0035131d","N",15.09,0.25,1],["Davi Shanti Sobreira Rocha","0037057f","A",14.84,0.25,1],["Gabriel Olegario de Morais","0036436i","A",15.08,0.0,0],["Thaila dos Santos Borges","0036143e","N",15.09,0.25,1],["Patricia Karla de Sousa Moura","0052753b","A",15.08,0.0,1],["Gizele Silva Ramos","0034948d","A",14.83,0.25,0],["Isabella Olivia Hannah Comin","0048039d","P",14.51,0.25,1],["Drielly Jessica Feitosa Silva","0033659c","N",15.08,0.25,1],["Lucas Elias de Araujo Cardoso","0051967e","A",14.83,0.25,1],["Bruno Alexandre de Medeiros","0036197f","A",14.81,0.25,1],["Martins Neto Bueno","0067486c","AN",14.8,0.25,0],["Isabella Dantas Oliveira","0034724d","N",15.31,0.0,1],["Mariana Loiola de Oliveira","0036637h","A",14.79,0.25,1],["Jhonata Lucas Parente Solano","0065239i","A",15.03,0.0,0],["Natalia de Sobral Ferreira","0036366c","A",15.03,0.0,1],["Isaac Severino Sousa Lima","0065123a","N",15.05,0.25,1],["William Gois Alves Cezario","0068010c","NP",14.75,0.0,1],["Louise Daniele Macena de Oliveira","0037595a","A",14.78,0.25,1],["Luis Felipe da Silva Queiroz","0033615e","A",14.77,0.25,0],["Romulo Eduardo Oliveira Benevides","0040920a","N",15.29,0.0,1],["Leonardo Queiroz Bastos","0040141j","A",15.01,0.0,1],["Ethel Fernandes Ramos Valle","0049000d","A",14.74,0.25,0],["Diego Gomes de Moura","0052656d","AN",14.73,0.25,1],["Welton Charles Costa Barbosa","0035497b","N",15.29,0.0,0],["Herlen Portela da Ponte","0074330g","A",14.97,0.0,1],["Pedro Luano Leitao Aragao","0075802e","A",14.96,0.0,1],["Anaiza Garcia Moura","0036106j","P",14.73,0.0,1],["Lucas Araujo da Costa","0039299g","N",15.04,0.25,1],["Tatyane Alves Mota Lisboa","0067598c","A",14.69,0.25,1],["Felipe Braga de Paula","0051667d","AN",14.68,0.25,0],["Kellen Samantha Prado Silva Vieira","0034288j","A",14.68,0.25,1],["Allan Gabriel Pereira da Silva","0039873b","N",15.28,0.0,1],["Mirella Chaves de Brito Dalva","0036677i","N",15.28,0.0,0],["Anna Higia Leite Barros","0063568g","A",14.92,0.0,1],["Alessandro Duarte Lins Guerrera","0065709i","AN",14.91,0.0,1],["Hanah Adler de Miranda Santos","0073949c","N",15.26,0.0,1],["Cicera Danielle da Silva Ferreira","0051322c","P",14.48,0.25,1],["Williane Marques de Sousa","0033291e","A",14.91,0.0,0],["Victor Gabriel Gomes Barros","0033455i","A",14.66,0.25,0],["Ingrid Maria Cavalcante Alexandre","0049181a","N",15.01,0.25,1],["Wesley Silva dos Santos","0065703h","AN",14.66,0.25,0],["Marilia Chagas Costa Moura","0033498e","A",14.65,0.25,1],["Joao Mariano Cavalcante Alves da Costa","0036886g","A",14.64,0.25,1],["Maria Heloisa Nogueira da Silva Alves","0036494a","N",15.0,0.25,1],["Augusto Pena Elias Sada","0033245i","A",14.88,0.0,1],["Mariana Lopes Portela","0036638j","A",14.88,0.0,0],["Antonio Emanoel Silvestre Ferreira","0041515h","NP",14.45,0.25,1],["Heitor Henrique Alves Medeiros","0065501g","N",14.99,0.25,1],["Vital Mateus Silva dos Reis Souza","0076294f","N",14.99,0.25,1],["Clara de Assis Carvalho Rocha","0073938i","A",14.86,0.0,1],["Francisco Roberio Fernandes Junior","0037787j","A",14.61,0.25,1],["Luiz Gonzaga Filho","0039300j","N",14.73,0.5,1],["Maria Valquiria Lemos da Silva","0037533a","A",14.6,0.25,1],["Francisco Fabio Reinaldo Viana","0040654f","AN",14.81,0.0,1],["George Luckas Morais Bernardo","0049231a","A",14.81,0.0,0],["Valdeci Vieira Gomes Junior","0040339i","N",15.22,0.0,1],["James Devyd Araujo de Souza","0038034j","P",14.69,0.0,1],["Carolina Rodrigues Farias","0038871d","A",14.54,0.25,0],["Hugo Andre Fernandes Lira","0041841j","A",14.54,0.25,0],["Maria Socorro Pereira de Oliveira","0048884h","N",14.97,0.25,1],["Ana Meire Vieira Costa","0063069k","A",14.78,0.0,1],["Italo Wesley Paz de Oliveira Lima","0067815g","A",14.78,0.0,1],["Kamilla de Macedo e Falcao","0037410g","A",14.78,0.0,0],["Luana dos Anjos Assis","0068104a","N",14.96,0.25,1],["Italo Cena Mendes","0050207i","A",14.53,0.25,1],["Amanda Claudino de Souza","0036691c","N",15.18,0.0,1],["Igor Makio Brasil Kanehira","0039212b","NP",14.68,0.0,1],["Diego da Silva Ribeiro","0034807h","N",15.18,0.0,1],["Loane Farias Cordeiro","0038676f","A",14.53,0.25,1],["Vinicius Duarte de Lima","0063610b","A",14.53,0.25,1],["Edilson da Silva Medeiros Junior","0035356f","A",14.52,0.25,1],["Felipe Medeiros Ferreira","0038661d","N",15.17,0.0,1],["Adriano de Freitas Carvalho","0076326d","A",14.51,0.25,1],["Leticia Coelho Cavalcante Moreira","0038522a","A",14.5,0.25,0],["Mariana Lopes do Nascimento","0034338j","A",14.49,0.25,1],["Victor Alves dos Santos","0051900f","N",15.17,0.0,1],["Milene de Almeida Chaves","0044365h","P",14.43,0.25,1],["Gilberto Forte Oliveira","0039602d","A",14.48,0.25,1],["Radames dos Santos Lima","0065088c","A",14.48,0.25,0],["Antonio Nickson de Oliveira Queiroz","0038123i","N",14.92,0.25,1],["Joao Guilherme Janja Ximenes Filho","0050646b","A",14.47,0.25,0],["Thiago Ferlipe Ferino Silva","0067491g","A",14.69,0.0,1],["Mateus Aguiar Marques","0033197b","A",14.44,0.25,0],["Luiza Cristina Nascimento de Holanda","0044394d","N",14.92,0.25,1],["Ana Vanessa Lima de Oliveira","0037559h","A",14.66,0.0,0],["Daniel Rolim Albuquerque","0052413k","A",14.4,0.25,1],["Joelson Pereira Alves","0063292c","NP",14.41,0.25,1],["Beatryz Ketlyn de Castro Duarte","0040063e","N",14.91,0.25,0],["Priscylla da Silva Oliveira","0035734a","A",14.61,0.0,1],["Jamille Duailibe Doudement","0076547i","A",14.36,0.25,1],["Dayvisson Luan Rodrigues da Costa","0038872f","A",14.35,0.25,1],["Isabel Ferreira dos Santos","0041111f","N",14.91,0.25,0],["Renata Leal Nogueira Rego","0049666c","A",14.33,0.25,1],["Thaillon Santos Logrado","0037223h","A",14.33,0.25,1],["Arthur Jorge Melo Rolim","0051494j","A",14.51,0.0,1],["Maisa Gabriela Furtado Moreira","0037597e","N",15.15,0.0,1],["Livia Morais Rosa Correia de Vasconcelos","0040319c","P",14.41,0.25,1],["Gabriel Henrique Silva dos Santos","0037509d","N",14.9,0.25,1],["Maria Neusvania da Silva Alves dos Santos","0036896j","N",14.9,0.25,1],["Jefferson Jhonatan Martins dos Santos","0065237e","N",15.14,0.0,1],["Jose Helio Bernardo da Silva","0067944g","A",14.26,0.25,1],["Alexia Ketle Alves Sousa","0067546f","A",14.24,0.25,1],["Andryne Liberato Aragao","0039114b","A",14.24,0.25,1],["Lemuel Alefe Ferreira de Souza Paz","0040381h","N",15.13,0.0,1],["Felipe Machado Nascimento","0039064b","A",14.24,0.25,1],["Arminda Paz Lima Neta","0039168c","A",14.45,0.0,1],["Thiago Phillipe Tavares Gomes de Farias","0037224j","P",14.41,0.25,1],["Monica Sabrina de Souza","0063806h","N",14.87,0.25,1],["Marco Aurelio Barroso de Melo","0036264f","A",14.43,0.0,1],["Anderson Hugo de Paula Fernandes","0035465k","A",14.38,0.0,1],["Jonathan Matheus Silva de Oliveira","0033188a","A",14.38,0.0,1],["Ana Clebia Araujo de Souza","0068155g","N",15.11,0.0,1],["Julio Biasoli Moura","0041667i","A",14.34,0.0,1],["Renato Lopes Santos","0038187b","AN",14.34,0.0,1],["Solange Eli Santos Antonioletti","0040047g","A",14.16,0.0,1]],"tec":[["LETICIA VIVIANNE DUARTE CAVALCANTE","0000976d","A",9.31,10.0,19.31,1,49,0],["JAIRO FERNANDO DOS SANTOS COSMO","0057349i","N",9.44,9.43,18.87,2,97,0],["ALEXANDRE FONSECA DE FREITAS","0009422f","A",9.69,9.6,19.29,2,387,0],["ELYSON ANGELO LEITE","0056886h","A",9.13,10.0,19.13,3,551,0],["RODRIGO ANDERSON MARQUES","0005487c","P",9.06,9.85,18.91,1,34,0],["ALYSSON ZEFERINO MARQUES","0069179d","N",9.19,9.33,18.52,3,5,0],["PEDRO ELPIDIO GADELHA GUIMARAES PINHEIRO","0002700f","A",9.19,9.93,19.12,4,480,0],["ANA GIULIA BARBOSA SOUSA","0009297g","A",9.06,10.0,19.06,5,-1,0],["ANA CLARA PINTO XIMENES","0009166c","A",8.94,10.0,18.94,6,-1,0],["THALITA AVELINO DE VASCONCELOS","0029427f","N",8.81,9.18,17.99,4,-1,0],["VINICIUS DE ASSIS DA LUZ DE DEUS","0009098a","A",8.94,10.0,18.94,7,-1,0],["CAMILLE DE MOURA ANDRADE","0009691k","A",8.94,10.0,18.94,8,398,0],["ANA CAROLINA ALVES ARAUJO","0006075g","A",9.63,9.25,18.88,10,102,0],["FRANCISCO EDILBERTO DE SOUSA TEIXEIRA FILHO","0003537d","N",8.94,8.93,17.87,5,9,0],["GISELE TEIXEIRA DE ABREU","0025579i","P",9.13,9.5,18.63,2,-1,0],["YCARO COELHO PEREIRA","0008247i","A",8.88,10.0,18.88,11,10,0],["ANTONIA SANARAH ALVES TIMBO","0002143k","I",8.94,7.85,16.79,1,83,0],["PEDRO ULISSES DOS REIS MUNIZ","0068770e","N",9.19,8.65,17.84,6,41,0],["BIANCA PAULA CHAVES CAVALCANTE","0004433h","A",9.63,9.2,18.83,13,87,0],["JULIA CRISTINA COSTA DE MOURA LUZ","0002603h","A",9.88,8.93,18.81,14,-1,0],["MARIA EDUARA ROBERTO DE SENA LIMA","0003872g","A",8.81,10.0,18.81,15,55,0],["LYLIAN VIDAL BATISTA DE LIMA","0008052e","N",8.19,9.65,17.84,7,-1,0],["LARA RODRIGUES LIMA AGUIAR","0057797c","A",9.13,9.6,18.73,16,219,0],["MARIA BIANCA RIBEIRO DE ASSIS","0068268i","A",9.44,9.28,18.72,17,103,0],["JOAO PAULO PONTE PIERRE","0009195j","P",9.0,9.5,18.5,3,94,0],["VITORIA AREA LEAO MESQUITA","0007715k","N",7.75,10.0,17.75,8,181,1],["DOMINGAS CORREIA MORAES","0006392h","Q",7.69,7.8,15.49,1,75,0],["ADRIANO PINHEIRO NANTUA BEZERRA","0001424c","A",9.56,9.15,18.71,18,38,1],["CAMILA LIMA CAMPELO","0069700k","A",8.69,10.0,18.69,19,-1,0],["MARIANA SILVA DE OLIVEIRA","0003833h","N",8.63,9.1,17.73,9,37,0],["GEORGE LUCAS BEZERRA CARNEIRO","0007738a","A",8.63,10.0,18.63,21,-1,0],["JULIA NEVES SPINELLI","0006409j","A",8.63,10.0,18.63,22,-1,0],["CARLOS EMANUEL RODRIGUES PAIVA","0070357g","A",8.56,10.0,18.56,23,-1,0],["MANOELA MEDEIROS RODRIGUES","0007757e","N",8.19,9.5,17.69,10,65,0],["MIGUEL VICTOR NETO","0009644b","P",9.31,8.93,18.24,4,184,0],["DEBBORAH DUARTE MORAIS PINHEIRO","0002968d","A",9.38,9.15,18.53,24,223,0],["LEONARDO QUEIROZ BASTOS","0007926b","A",8.5,10.0,18.5,27,698,0],["MARIO KEMPES LACERDA PEREIRA FILHO","0015595a","N",8.94,8.63,17.57,11,-1,0],["ANDRESSA SAMPAIO MOTA","0008881k","A",8.5,10.0,18.5,28,383,0],["DANIELLE REJANE FARIAS CORDEIRO","0006493c","A",8.5,10.0,18.5,29,-1,0],["LUCAS NOGUEIRA CAVALCANTE","0000918a","A",8.5,10.0,18.5,30,188,0],["JUSCELINO OLIVEIRA DE MELO","0005882i","N",8.5,9.05,17.55,12,-1,0],["JULIANA MARIA DE OLIVEIRA BRUNO","0070669d","A",8.81,9.68,18.49,31,-1,0],["BRUNA ALBUQUERQUE DE SOUSA LIMA","0007104d","A",9.44,9.0,18.44,32,600,0],["PHILIPPE DOS SANTOS DE LIMA","0031345c","P",8.69,9.35,18.04,5,114,0],["TALLES GABRIEL COSTA PINHEIRO","0006160i","N",9.44,8.1,17.54,13,1,0],["THAINA SANTOS FREITAS","0005605e","A",9.44,9.0,18.44,33,250,0],["YUUSEI HOSHINO","0009360j","A",8.38,10.0,18.38,34,210,0],["RAUL ANDRADE DA COSTA","0005450b","A",8.94,9.43,18.37,35,322,0],["LAYSA CHAVES SOARES","0068604j","N",8.94,8.6,17.54,14,105,0],["MARILZA GABRIELLA QUIRINO DE SA SILVA","0009280a","I",8.5,6.68,15.18,2,50,0],["SERVULO MARCEL HORA ALVES","0007330b","A",9.0,9.35,18.35,36,19,0],["PEDRO HENRIQUE LINS MENDES","0002487j","A",8.81,9.5,18.31,37,-1,0],["IVINA SOARES DE OLIVEIRA ARRUDA","0011125j","N",8.31,9.18,17.49,15,-1,0],["LUCAS DIOGENES VELOSO FERREIRA","0005314e","P",8.63,9.0,17.63,7,164,0],["VICTOR DE OLIVEIRA ANDRADE","0001546f","A",9.0,9.3,18.3,38,51,0],["LETICIA DE OLIVEIRA MARQUES","0057681f","A",9.25,9.05,18.3,39,266,0],["PEDRO DE OLIVEIRA CASTRO","0001597a","N",8.75,8.73,17.48,16,437,0],["GABRIEL MOURA BRAUNA","0006578k","A",9.31,8.98,18.29,40,-1,0],["ALINE SIQUEIRA GUILHERME DE LIMA","0055123f","A",9.13,9.15,18.28,41,431,0],["LUCAS MENEZES GOIANO","0009673i","A",9.25,9.0,18.25,42,151,0],["CARLA GABRIELE DA SILVA NASCIMENTO","0069143e","N",8.13,9.35,17.48,17,441,0],["ANA BEATRIZ FROTA LINHARES","0006020d","A",9.06,9.18,18.24,44,30,1],["MARIANA LOPES PORTELA","0004423e","A",8.63,9.6,18.23,45,723,0],["ANA CARLA ROCHA SILVA","0004159c","P",8.13,9.35,17.48,8,44,0],["LUCAS ARAUJO DA COSTA","0007084b","N",8.94,8.48,17.42,18,705,0],["GABRIEL E SILVA FERREIRA LEONCIO","0003328f","A",9.31,8.88,18.19,46,187,0],["FLAVIA QUESADA ARAGAO RODRIGUES","0006496i","A",9.31,8.88,18.19,47,186,0],["CARLOS EDUARDO SILVA DIOGENES","0020750a","A",8.69,9.5,18.19,48,-1,0],["GABRIEL LUIZ ARAUJO DOS SANTOS","0003748f","N",8.44,8.98,17.42,19,309,0],["RUBENS MOURA COLARES","0009157b","A",9.13,9.05,18.18,49,139,0],["MARIA VICTORIA NOBREGA CORREIA","0001860a","A",8.75,9.43,18.18,50,-1,0],["BEATRIZ MELO JUCA","0005286d","A",8.94,9.23,18.17,51,138,0],["ANTONIA SABRINA BRAGA GONCALVES","0005858a","N",8.38,9.0,17.38,20,457,0],["VICTOR ANTONIO DA SILVA SALLES","0025740a","P",7.94,9.5,17.44,9,-1,0],["JULIA MACIEL DE OLIVEIRA BRITO","0008848b","Q",6.06,9.0,15.06,2,26,0],["GUSTAVO DIOGENES KATAOKA","0008033a","A",9.31,8.85,18.16,52,148,0],["THIAGO PEREIRA DE CARVALHO","0007774e","N",7.94,9.43,17.37,21,473,0],["RAMON ALBUQUERQUE DE SOUZA","0007364h","A",9.0,9.15,18.15,53,-1,0],["LETICIA DA SILVA LEITE","0004143j","A",8.63,9.5,18.13,54,222,0],["RENATO ANDRE BARROS FERREIRA","0001478d","A",8.69,9.43,18.12,55,-1,0],["MIRELLA CHAVES DE BRITO DALVA","0004462d","N",8.63,8.73,17.36,22,710,0],["EMANUELLA RAMOS MOTA","0025720f","I",5.5,9.43,14.93,3,-1,0],["LUAN DAVID DE SOUSA BARBOSA","0002570h","A",9.13,8.98,18.11,56,40,0],["ARTUR DE MEDEIROS ANTAS","0007021k","P",7.69,9.5,17.19,10,154,0],["CARLA CHRISTINA RAMOS DUARTE","0055731g","N",8.13,9.15,17.28,23,289,0],["MARIA JULYA LOPES CALLADO","0012216g","A",9.38,8.68,18.06,57,90,0],["SAVIO LEANDRO DE CARVALHO SOBREIRA","0002043g","A",9.06,9.0,18.06,58,39,0],["GABRIELA NOBRE MOREIRA","0003540d","A",9.38,8.65,18.03,60,235,0],["ALEX CARDOSO DE SOUSA","0003598b","N",8.25,9.0,17.25,24,449,0],["JOAO LUCAS LOPES DE QUEIROZ","0019429d","A",9.0,9.0,18.0,61,-1,0],["BRUNA ALMEIDA MAGALHAES BERTAZZO SILVEIRA","0003935e","A",9.25,8.75,18.0,62,407,0],["EVELYN DA ASSUNCAO LIMA MAPURUNGA","0002409a","A",9.0,9.0,18.0,63,162,1],["ABRAHAO FALCAO DE ANDRADE","0015770d","N",7.81,9.35,17.16,25,-1,0],["SONHA MARIA COELHO DE AQUINO","0000573d","P",9.31,7.8,17.11,11,-1,0],["THAINA MARIA MAIA DE ANDRADE OLIVEIRA DE BRITO","0007135d","A",8.56,9.43,17.99,64,-1,0],["MARIA LARISSA BARBOSA SOARES","0008105k","A",9.0,8.98,17.98,66,-1,0],["THAISSA HELLEN FERREIRA DA COSTA","0003665b","N",8.94,8.15,17.09,26,541,0],["JORIO SERRA MAIA JUNIOR","0004086b","A",9.13,8.83,17.96,67,368,0],["SOFIA MARIA BESSA DE CARVALHO","0006763f","A",8.75,9.2,17.95,68,263,0],["TALLISON DO NASCIMENTO SOUSA","0001415b","A",9.44,8.5,17.94,69,308,0],["THAILA DOS SANTOS BORGES","0003928h","N",8.56,8.53,17.09,27,681,0],["VIRNA DE CASTRO SILVA","0009651j","A",8.94,9.0,17.94,70,178,0],["BRENDA JADE SANTOS BARBOSA TORQUATO","0055229k","A",8.94,9.0,17.94,71,27,0],["RAISSA BARBOSA PIRES BRANDAO","0007999g","P",9.0,8.1,17.1,12,84,0],["AMANDA CLAUDINO DE SOUZA","0004476d","N",8.81,8.25,17.06,28,743,0],["MARIA SAMARA VASCONCELOS","0021651d","A",9.19,8.75,17.94,72,-1,0],["MARINA ANDRADE LIMA","0009016f","A",8.94,9.0,17.94,73,-1,0],["ELYNE EULALYA MENDONCA LOPES","0008316b","A",9.5,8.43,17.93,74,60,0],["MARIA EDUARDA DE ALBUQUERQUE SILVA","0003409f","N",7.56,9.5,17.06,29,125,0],["KAIO JOSE MENDES MONTEIRO","0006346a","A",9.13,8.8,17.93,75,107,0],["MARCIA MEDEIROS BERNARDINO BEZERRA","0055800k","A",9.38,8.53,17.91,76,112,0],["JONATHAN RENAURO GUEDES LUCAS","0005372h","A",9.31,8.6,17.91,77,203,0],["HENRYTON KLYSTHENES RIBEIRO BEZERRA","0016204i","N",7.06,10.0,17.06,30,-1,0],["TALLITA BATISTA MENDES","0001121g","P",7.75,9.35,17.1,13,174,0],["RAYANE GADELHA RAFAEL SALES","0003520i","I",6.38,8.53,14.91,4,116,0],["RENATO DA NOBREGA BARROS","0055918a","A",9.0,8.9,17.9,78,-1,0],["ANDREW MILLER ARAUJO MACIEL","0056327e","N",8.56,8.48,17.04,31,-1,0],["LARISSA FALCAO ARAGAO","0009334i","A",9.19,8.7,17.89,79,110,0],["VALDECI ALMEIDA COSTA FILHO","0006531g","A",9.38,8.5,17.88,80,503,0],["ELLEN BERNARDINO DA SILVA PINTO","0020172i","A",9.44,8.43,17.87,81,-1,0],["GHABRIEL LEITE PAIM","0004808c","N",8.44,8.58,17.02,32,610,0],["LORENNA ARAUJO DA SILVA","0003960d","A",8.88,8.98,17.86,83,-1,0],["ERIK DA SILVA COSTA","0010751h","A",9.0,8.85,17.85,84,-1,0],["SMYRNA HONORATA ALVES CARDOSO DE ARAUJO","0055819j","P",7.31,9.68,16.99,14,454,0],["PAULO HENRIQUE MENEZES VILAR","0055916h","N",8.63,8.38,17.01,33,305,0],["ANA LUIZA DOS SANTOS MATOS","0008481f","Q",4.81,7.88,12.69,3,126,0],["MONICA ALBUQUERQUE REIS","0011317h","A",9.0,8.85,17.85,85,-1,0],["MIGUEL DO NASCIMENTO LUCENA","0055160a","A",8.69,9.15,17.84,87,86,0],["DIEGO SANTANA DE CASTRO","0009734c","N",8.75,8.25,17.0,34,25,0],["BENJAMIN EUGENIO CAVALCANTE LIMA","0002630k","A",8.44,9.4,17.84,88,108,0],["FRANCISCO NILSON MOURA DAS CHAGAS FILHO","0007026j","A",8.88,8.93,17.81,89,418,0],["JOAO PEDRO BARROS PESSOA","0003152f","A",8.56,9.25,17.81,90,-1,0],["GABRIEL HENRIQUE SILVA DOS SANTOS","0005294c","N",7.81,9.18,16.99,35,775,0],["LUCAS DOS SANTOS ALVES","0055456k","P",9.0,7.95,16.95,15,214,0],["GABRIEL MOREIRA DO NASCIMENTO","0007681i","A",8.81,9.0,17.81,91,-1,0],["ESTHER CATARINA CONCEICAO FERREIRA","0057401g","A",8.81,9.0,17.81,92,31,0],["ANA LIVIA DA COSTA CHAVES ZEFERINO","0068703a","N",8.63,8.35,16.98,36,525,0],["ARTUR CERQUEIRA PRADO","0011486i","A",9.06,8.75,17.81,93,-1,0],["MARIA SANIELE DE OLIVEIRA","0028759d","A",8.38,9.43,17.81,94,-1,0],["JOAO VICTOR MACENA DA SILVA","0004408i","A",9.0,8.8,17.8,95,-1,0],["LUCAS SOUSA FREITAS","0000511d","N",7.63,9.3,16.93,37,-1,0],["LETICIA OLIVEIRA ANDRADE LIMA","0001106k","A",8.81,8.98,17.79,96,-1,0],["LAYANE MORAIS DA ROCHA NOJOSA","0007402a","A",9.25,8.53,17.78,97,-1,0],["HARYEL PABLLO DA SILVA BESERRA","0059129e","P",7.56,9.35,16.91,16,364,0],["RAFAEL FERREIRA DA SILVA","0001288j","N",7.69,9.23,16.92,38,-1,0],["TYCIANE VIEIRA LOPES","0010898e","A",8.75,9.03,17.78,98,-1,0],["JOAO FELIPE GOMES FILGUEIRA BEZERRA","0008154b","A",8.88,8.9,17.78,99,-1,0],["MARIA CAROLINNA BASTOS SANTANA TORRES","0057062k","I",6.94,7.45,14.39,5,16,0],["MAYLA MAYARA SABINO DE CARVALHO","0057529k","N",8.56,8.35,16.91,39,301,0],["ANACAROLINE PINHEIRO GONCALVES","0058042j","A",9.69,8.08,17.77,100,28,0],["BEATRIZ FROTA MOREIRA","0007147k","A",8.75,9.0,17.75,101,-1,0],["JULIA PHILOMENO GOMES PIMENTEL","0007000c","A",8.75,9.0,17.75,102,191,0],["IGOR LEONARDO VITORINO SILVA","0002806k","N",8.06,8.85,16.91,40,209,0],["JOSE ARTHUR RODRIGUES JACO TAVARES","0062515c","P",7.88,9.0,16.88,17,-1,0],["VANESSA SOARES DE ANDRADE","0002135a","A",9.06,8.68,17.74,103,52,0],["GABRIEL CARVALHO DANTAS VERAS E SILVA","0068258f","A",9.44,8.3,17.74,104,-1,0],["ANDREY MESQUITA BARROS","0005558k","N",8.31,8.6,16.91,41,365,0],["EMMANUEL BESSA DE SANTIAGO GONCALVES","0001383d","A",8.94,8.8,17.74,105,251,0],["MATEUS DA SILVA ALBUQUERQUE","0058027c","A",8.44,9.3,17.74,106,328,0],["IVINA PEREIRA NERES","0001008k","A",8.75,8.98,17.73,108,176,0],["LEONARDO HENRIQUE MAGALHAES DO AMARAL BATISTA","0008638b","N",8.25,8.63,16.88,42,409,0],["DIONISIA HELENA DE CARLIRIS OLIVEIRA BARBOSA","0002727d","A",8.88,8.85,17.73,109,-1,0],["KILMA RAYSSA GONCALVES VITURINO","0055551e","A",8.38,9.35,17.73,110,120,0],["MARIA JOSY DE SALES OLIVEIRA","0025470i","P",7.63,9.23,16.86,18,-1,0],["VALDENIS RUFINO FERREIRA SOARES","0025670f","N",7.75,9.13,16.88,43,361,0],["CLARA LIS BEZERRA MEDEIROS SOUTO","0005504j","A",8.38,9.35,17.73,111,-1,0],["LARISSA SALES QUINTELA","0004677c","A",9.31,8.4,17.71,112,46,0],["CICERO ROBERLANIO NUNES BELEM","0055232k","A",9.13,8.58,17.71,113,-1,0],["LUIZA BEATRIZ FORTUNATO VICENTE","0057418b","N",6.88,10.0,16.88,44,353,0],["BEATRIZ MOURA BARBOSA","0003848j","A",8.56,9.15,17.71,114,-1,0],["NATALIA ANTONINO PINTO","0017467b","A",9.44,8.25,17.69,115,-1,0],["THAIS ALMEIDA DE ALBUQUERQUE","0055669f","A",8.69,9.0,17.69,116,-1,0],["ISADORA BEZERRA ALBUQUERQUE","0007119f","N",8.5,8.35,16.85,45,-1,0],["THAMIRYS FELIPE DE LIMA","0025521k","P",7.5,9.35,16.85,19,-1,0],["ELIOENAI HELENA DOS SANTOS","0061551b","Q",5.75,6.33,12.08,4,-1,0],["ELAN CARVALHO DA SILVA","0024182j","A",8.75,8.93,17.68,117,-1,0],["STHEFANY LORENI DE PAULA SOUZA","0004781i","N",8.25,8.6,16.85,46,-1,0],["CLARICE RIBEIRO ALVES CAIANA","0057037a","A",8.63,9.05,17.68,118,3,0],["VICTOR RIBEIRO DA LUZ","0002832a","A",8.63,9.05,17.68,119,430,0],["GUSTAVO DE FREITAS GONCALVES","0001449h","A",9.81,7.85,17.66,120,56,1],["VITORIA GABRIELA GOMES SOTERO","0003841g","N",7.81,9.0,16.81,47,-1,0],["MARCOS MATHEUS RODRIGUES DE ANDRADE","0016941j","I",6.88,7.1,13.98,6,-1,0],["ORMISA GURGEL SALES DE FREITAS","0005537c","A",8.81,8.85,17.66,121,-1,0],["LUCAS FERREIRA COSTA","0069789i","P",8.44,8.35,16.79,20,-1,0],["MARCOS VINICIUS ROSA FERREIRA","0007874i","N",7.13,9.68,16.81,48,-1,0],["GABRIEL BARROSO DE MELO RIOS","0020513i","A",9.81,7.83,17.64,122,-1,0],["ELLIS DE OLIVEIRA FREITAS FILHO","0069508h","A",8.56,9.08,17.64,123,-1,0],["CAIO VANUTI MARINHO DE MELO","0002756k","A",9.81,7.8,17.61,125,586,0],["NATHALIA MARQUES DA SILVA","0006595k","N",7.0,9.8,16.8,49,-1,0],["IVYNNA ARRUDA LOPES","0069034k","A",9.38,8.23,17.61,126,160,1],["FRANCISCA RENATA FROTA PACHECO","0069268c","A",9.13,8.48,17.61,127,619,0],["JOABE FEITOSA GOIS JUNIOR","0025618d","A",9.0,8.58,17.58,128,639,0],["CARLOS EDUARDO MONTEIRO DE PAIVA","0069263d","N",8.56,8.23,16.79,50,21,0],["ERICA CLEA BARROS DE LIMA TAVARES","0031348i","P",7.69,9.0,16.69,21,-1,0],["BEATRIZ ALENCAR SOBREIRA GUERREIRO","0012206d","A",8.63,8.95,17.58,129,-1,0],["JORGE ULISSES E SILVA FERREIRA LIMA","0003266j","A",9.19,8.38,17.57,131,-1,0],["CAROLINA DE MACEDO FERREIRA","0011373g","N",7.81,8.95,16.76,51,-1,0],["MARCUS VINICIUS SARAIVA MARTINS FILHO","0002744d","A",8.94,8.63,17.57,132,246,0],["PAULO HENRIQUE COSTA PINTO","0001641k","A",8.69,8.88,17.57,133,-1,0],["VINICIUS ULISSES MENDONCA","0058095i","A",9.06,8.5,17.56,134,-1,0],["RAIANY ELEN RAMOS DO NASCIMENTO","0007466e","N",7.81,8.93,16.74,52,657,0],["BEATRIZ CASTRO PORTELA","0008723d","A",8.56,9.0,17.56,135,-1,0],["DEBORA DOS SANTOS ROCHA COLARES","0007968g","A",8.56,9.0,17.56,136,-1,0],["ANA KATHARINA MENEZES DA COSTA FERNANDES","0025643c","P",9.0,7.63,16.63,22,524,0],["FRANCISCO HERCULES LOPES SOARES","0013506j","N",7.75,8.98,16.73,53,-1,0],["ANTONIA TAUANNE RODRIGUES DE SOUSA","0004076j","A",8.44,9.1,17.54,140,672,0],["GISELLY DA SILVA MOURA","0009590e","A",8.81,8.73,17.54,141,-1,0],["MATHEUS RECAMONDE MARASCHIM","0007036b","A",9.5,8.03,17.53,142,96,0],["ANTONIO EDILSON DE GOES JUNIOR","0016069g","N",8.44,8.28,16.72,54,-1,0],["DEMETRIOS DE ALENCAR RODRIGUES","0057560e","A",9.25,8.25,17.5,143,399,0],["FLAVIA FERREIRA BEZERRA","0055987i","A",8.5,9.0,17.5,144,-1,0],["LAYSA EVELYN QUEIROZ GONCALVES","0004142h","A",8.5,9.0,17.5,145,-1,0],["FRANCISCO EVANDRO DA COSTA SOUSA","0069231b","N",8.13,8.55,16.68,55,-1,0],["JOAO VICTOR DE ALMEIDA GODOY","0025708e","P",8.13,8.5,16.63,23,-1,0],["MARIA LETICIA CAVALCANTE MACEDO","0055804h","I",7.25,6.55,13.8,7,248,0],["MARIA ELOISE DANTAS DE AZEVEDO","0058021b","A",8.56,8.93,17.49,146,-1,0],["MARIA NEUSVANIA DA SILVA ALVES DOS SANTOS","0004681e","N",8.44,8.23,16.67,56,776,0],["BEATRIZ MARIA BEZERRA PEREIRA","0007665k","A",8.88,8.6,17.48,148,528,0],["SANDRO FERNANDES SILVA GALDINO","0004336j","A",8.94,8.5,17.44,149,-1,0],["PAULO DIONATHAN LINHARES CLAUDINO","0008113j","A",8.56,8.88,17.44,150,-1,0],["JACKSON OLIVEIRA DE MELO","0005123i","N",9.13,7.53,16.66,57,669,0],["BRUNA SWYANNE CUNHA DE ALMEIDA LIMA","0060718g","A",8.44,9.0,17.44,151,-1,0],["JOAO VITOR DIAS OLIVEIRA","0057623c","A",8.44,9.0,17.44,152,-1,0],["EDUARDO MARINS DE SANTANA ALVES","0012241f","P",7.63,9.0,16.63,24,-1,0],["DANILO SERAFIM DA SILVA","0011415h","N",8.81,7.85,16.66,58,-1,0],["FRANCISCO DE ASSIS SEVERO","0057046b","Q",5.5,6.33,11.83,5,275,0],["CARLOS HENRIQUE GONCALVES DE SOUZA","0001000f","A",8.88,8.55,17.43,153,-1,0],["DANIEL ALMEIDA LINO","0004661j","A",9.13,8.3,17.43,154,562,0],["LUCAS LEVIR DO VALE GOMES","0056501f","N",8.31,8.35,16.66,59,-1,0],["JOAO MARCOS DE ARAUJO LIMA","0069154j","A",8.63,8.8,17.43,155,2,0],["ALBERTO VITOR BEZERRA ARAUJO SOUZA","0006768e","A",9.19,8.23,17.42,156,352,0],["THAIS SILVA ARAUJO DE AMORIM COELHO","0070105b","A",8.44,8.98,17.42,158,-1,0],["RENATA BARROS BERNARDO","0004013h","N",8.44,8.15,16.59,61,485,0],["JOSSANDRA VICTORIA DOS SANTOS FONTENELE ANDRADE","0073325i","P",8.06,8.45,16.51,25,-1,0],["TAMIRES PAULINO CESAR DOS SANTOS","0068930a","A",9.25,8.15,17.4,160,539,0],["GABRIEL DE LIMA SILVA","0057941f","A",9.0,8.4,17.4,161,379,0],["LETICIA MARTINS SOARES","0001467j","N",7.44,9.15,16.59,62,-1,0],["MARIA CAROLINE RAMOS OLIVEIRA","0004722d","A",8.44,8.95,17.39,162,-1,0],["RAIMUNDO LEILTON ANDRADE LUCAS","0017232h","A",8.69,8.68,17.37,164,-1,0],["LANNA BEATRIZ SAMPAIO PRACIANO","0007354e","A",9.13,8.23,17.36,165,18,0],["EMANUELLE DA SILVA COSTA","0070029a","N",8.25,8.33,16.58,63,-1,0],["THAIS BANDEIRA RODRIGUES","0008591b","A",8.56,8.8,17.36,167,-1,0],["ERIC HOLANDA LINS","0009311h","A",8.63,8.73,17.36,168,450,0],["LUCAS RICARDO SANTOS DA SILVA","0059120i","P",8.63,7.85,16.48,26,-1,0],["LUIZA CRISTINA NASCIMENTO DE HOLANDA","0012285d","N",8.88,7.7,16.58,64,761,0],["MANOELLA TATYANE QUEIROZ DE MOURA","0006514g","A",8.38,8.98,17.36,169,-1,0],["LEONARDO JONATHAN DE LIMA SANTANA","0057200h","I",5.81,7.63,13.44,8,347,0],["VICTOR MONTEIRO VALENTIM DE MOURA","0001547h","A",9.0,8.35,17.35,170,-1,0],["ROMULO EDUARDO OLIVEIRA BENEVIDES","0008705b","N",8.38,8.2,16.58,65,697,0],["ITALO CASTRO DE ABREU","0004634g","A",8.69,8.65,17.34,171,-1,0],["PEDRO ENRIQUE UCHOA DANTAS","0002941f","A",8.44,8.9,17.34,172,-1,0],["LEONARDO RODRIGUES DE JESUS","0069004b","A",8.5,8.83,17.33,173,-1,0],["FRANCISCO MATHEUS CAETANO DE OLIVEIRA","0009700h","N",8.63,7.95,16.58,66,101,0],["JOSE LUCAS DE LIMA RAMOS","0012590i","P",8.75,7.73,16.48,27,-1,0],["JOAO MONTEIRO NUNES FILHO SEGUNDO","0000862k","A",8.44,8.88,17.32,174,-1,0],["ANA CAROLINE SILVA DE ALMEIDA","0002753e","A",8.81,8.5,17.31,175,459,0],["TAYSE MESQUITA DE SOUSA","0018518i","N",8.13,8.43,16.56,67,-1,0],["MATHEUS CAVALCANTE LIMA","0001173d","A",9.13,8.18,17.31,176,408,0],["ANA CLAUDIA LIMA DA ROCHA MACHADO","0012173d","A",8.81,8.5,17.31,177,-1,0],["RAFAEL VICTOR FREITAS DA SILVA","0028614k","A",8.88,8.43,17.31,178,-1,0],["KASSIELY VERONICA DE MOURA CONCEICAO LIMA","0002738i","N",7.56,9.0,16.56,68,341,0],["LARA DA SILVA BRITO","0009333g","A",9.0,8.3,17.3,179,-1,0],["ALISSA SANTOS FERNANDES","0001244a","A",9.56,7.73,17.29,180,-1,0],["GABRIELLY DE OLIVEIRA MATOS","0012182e","P",7.38,9.05,16.43,28,384,0],["FELIPE LUSTOSA RABELO","0006988h","N",8.94,7.6,16.54,69,157,0],["GIOVANNA SARMENTO DELLA GUARDIA","0003750d","A",8.69,8.6,17.29,181,-1,0],["NAIANE NUNES MACHADO","0061728d","A",9.06,8.23,17.29,182,-1,0],["MILENA SAMARA MAIA MENDES","0023060b","A",8.44,8.85,17.29,183,-1,0],["FLAVIENE MENDES ARAUJO","0008026d","N",7.19,9.35,16.54,70,-1,0],["ANTONIO ALBUQUERQUE DA SILVA","0069261k","A",8.56,8.73,17.29,184,338,0],["GABRIEL MACIEL BARBOSA","0008495f","A",8.56,8.73,17.29,185,-1,0],["MARIA FERNANDA SIQUEIRA GAMA","0055557f","A",8.63,8.65,17.28,186,76,0],["CAIO HENRIQUE DA SILVA MENDES","0056927g","N",7.88,8.63,16.51,71,149,0],["THAYS MAGALHAES PEREIRA","0009578d","P",8.5,7.9,16.4,29,194,0],["LIMA EDNALVA FERNANDES","0061701f","Q",5.38,6.45,11.83,6,-1,0],["FABIO OZEAS DA LUZ","0055787a","A",9.56,7.7,17.26,187,292,0],["LARA MICHELE SILVA DE MORAES","0006966i","N",7.75,8.75,16.5,73,-1,0],["EDUARDO FERREIRA LEIROZ","0003681k","A",8.81,8.45,17.26,188,542,0],["JOAO PAULO DOS REIS DE FREITAS","0031383k","A",8.88,8.38,17.26,189,-1,0],["ESTER FERREIRA RODRIGUES","0030441e","I",5.06,8.2,13.26,9,-1,0],["YASMIN DE MORAES SAMPAIO","0004381d","N",8.0,8.5,16.5,74,-1,0],["JOSE ESIO DOS SANTOS FILHO","0013209d","A",9.13,8.13,17.26,190,-1,0],["LIVIA OLIVEIRA LEMOS","0008746e","A",8.75,8.5,17.25,191,-1,0],["GIULIA NOBREGA DE ALMEIDA","0004354a","P",7.88,8.5,16.38,30,-1,0],["MAYZA BARBOZA DA SILVA","0057011e","N",8.63,7.85,16.48,75,381,0],["FRANCISCO DIEGO LIMA QUEIROZ","0006777f","A",9.56,7.68,17.24,192,143,0],["ANDRE GUSTAVO MIRANDA AGUIAR CARVALHO","0069780b","A",9.31,7.93,17.24,193,190,1],["ANA LIVIA SOUZA FLORINDO","0002625g","A",8.56,8.68,17.24,194,-1,0],["WILLYENE SOUZA AIRES","0009164j","N",7.13,9.35,16.48,76,-1,0],["JOSE WILSON DE AQUINO FILHO","0008039b","A",8.69,8.55,17.24,195,-1,0],["RAFAELA FREDERICO COELHO","0007648k","A",8.56,8.68,17.24,196,635,0],["GABRIEL FERRAZ ARAUJO","0056440a","A",9.13,8.1,17.23,197,-1,0],["CLEIDIANA DA CONCEICAO CRUZ","0068786i","N",7.69,8.78,16.47,77,-1,0],["RAFAEL NATAN DO NASCIMENTO SILVA DUNIZ","0001066c","P",8.25,8.1,16.35,31,574,0],["KARINA INACIO DE LIMA","0055905c","A",9.13,8.1,17.23,198,278,0],["MARCELO FERNANDES MENESCAL DE LIMA","0009205i","A",9.5,7.73,17.23,199,320,0],["JULIO MATHEUS ANTUNES SOARES","0029479c","N",7.94,8.5,16.44,78,-1,0],["DIEGO CHAVES LEITE","0057900c","A",8.75,8.48,17.23,200,-1,0],["ALICE SOMBRA REGIS","0010999k","A",8.69,8.53,17.22,201,-1,0],["CARLOS SAMUEL PEIXOTO CANDEA","0009117a","A",9.5,7.7,17.2,202,220,0],["AUREA BEATRIZ VASCONCELOS DAS NEVES","0068982i","N",8.19,8.25,16.44,79,169,0],["MISAEL ABZADAQUE LIMA DE OLIVEIRA","0003123j","A",9.06,8.13,17.19,203,32,0],["MARIA EDUARDA SILVA ALCANTARA","0068639g","A",8.94,8.25,17.19,204,-1,0],["HELOISA CHAVES DE OLIVEIRA","0012186b","P",7.81,8.5,16.31,32,-1,0],["JOAO VICTOR CARDOSO DE MELO","0007745i","N",7.88,8.55,16.43,80,229,0],["MARIA EDUARDA ROCHA NASCIMENTO","0005259a","A",8.44,8.75,17.19,205,-1,0],["LUCAS QUINTELA DE SOUZA","0008050a","A",9.13,8.05,17.18,206,655,0],["DIOGO VERAS HARDY MADEIRA","0001511i","A",8.38,8.8,17.18,207,-1,0],["FRANCIELE DA SILVA AGAPTO","0057044i","N",8.63,7.78,16.41,81,650,0],["INGRID SILVA CAVALCANTE MAIA","0009447k","A",8.63,8.55,17.18,208,-1,0],["CICERO RONNILDO ARAUJO MELO","0005800c","A",9.06,8.1,17.16,209,-1,0],["WESLEY DIEGO VIEIRA BONFIM","0006432e","A",8.81,8.35,17.16,210,-1,0],["VIVIANY DE MOURA BRITO","0056770k","N",8.56,7.85,16.41,82,-1,0],["ALESSANDRA CASTELO NOBRE","0029426d","P",8.88,7.35,16.23,33,-1,0],["JOSE PAULO NUNES","0062205j","I",5.75,7.5,13.25,10,-1,0],["JANAINA MARA DE FREITAS SENA SILVANO","0005820i","A",8.56,8.6,17.16,211,-1,0],["RAQUEL OLIVEIRA DUARTE NOGUEIRA","0013393a","N",7.25,9.15,16.4,83,-1,0],["JOSE HAMILTON CARDOZO JUNIOR","0001629j","A",9.38,7.75,17.13,212,-1,0],["GABRIEL DOS SANTOS SILVA","0012828e","A",8.5,8.63,17.13,213,-1,0],["MATHEUS HENRIQUE DOS SANTOS SILVA","0056109f","A",8.63,8.5,17.13,214,-1,0],["JOHN LENNON SOUSA BARBOSA","0058014e","N",8.19,8.2,16.39,84,-1,0],["DAVI JOVINO CARVALHO","0071203g","A",9.38,7.73,17.11,215,-1,0],["FELIPE MACHADO NASCIMENTO","0006849e","A",9.13,7.98,17.11,217,782,0],["JOAO PEDRO BATISTA QUEIROZ DA SILVA LIMA","0010115b","P",7.88,8.25,16.13,34,-1,0],["ALEX SANDRA TOME DE SOUSA","0008714c","N",8.19,8.18,16.37,85,-1,0],["ROCHA SANTOS ANA CAROLINA DOS SANTOS","0059446f","Q",6.13,5.63,11.76,7,-1,0],["VICTOR EMANUEL PEREIRA DA SILVA","0006430a","A",8.81,8.3,17.11,218,643,0],["LUAN DA SILVA AMORIM","0057246j","A",8.38,8.73,17.11,219,376,0],["MATHEUS LUIS DE OLIVEIRA TOMAS","0008752k","N",8.38,7.98,16.36,86,623,0],["LUISA REGO BORGES","0002431e","A",8.56,8.55,17.11,220,-1,0],["LIDIA MARIA MOREIRA SARAIVA","0004905a","A",9.0,8.1,17.1,222,316,0],["ANNA LARYSSE MUNIZ BRITO","0003130g","A",9.25,7.85,17.1,223,208,0],["KESIA PEREIRA DOS SANTOS","0002773k","N",7.88,8.48,16.36,87,-1,0],["HELTON BARROZO TEIXEIRA DE SOUZA","0020346e","P",7.38,8.75,16.13,35,-1,0],["ANDREIA MANOELLE ROCHA DA COSTA","0001427i","A",8.75,8.35,17.1,224,-1,0],["MARINA MARIANO TORRES MOTA","0004280i","A",8.44,8.65,17.09,227,131,1],["LEMUEL ALEFE FERREIRA DE SOUZA PAZ","0008166i","N",7.5,8.85,16.35,89,781,0],["HENRIQUE AUGUSTO RODRIGUES DUAILIBE FILHO","0004575f","A",8.63,8.45,17.08,228,-1,0],["GABRIEL DE QUEIROZ SABINO","0003397c","A",8.88,8.18,17.06,229,172,0],["FILIPE JOSE DA ROCHA PASSOS SOBRAL","0004219f","A",8.88,8.18,17.06,230,400,0],["LUIZ FELIPE SERRA SANTOS","0004047c","N",7.69,8.65,16.34,90,173,0],["NAIANA GONCALVES DINIZ XEREZ","0005484h","A",8.63,8.43,17.06,232,-1,0],["FRANCISCO YTALLO DA SILVA SAUNDERS","0009509g","A",8.94,8.1,17.04,233,515,0],["MARIA LYVIA DA SILVA SERAFIM ALVES","0030056b","P",6.56,9.5,16.06,36,-1,0],["PAULO FERNANDO DE BARROS CERQUEIRA JUNIOR","0001537e","N",7.81,8.5,16.31,91,-1,0],["ELANIO CAVALCANTE FONTENELE","0019303d","I",6.13,6.85,12.98,11,-1,0],["FRANCISCO WESLEY PONTES DA SILVA","0002594k","A",9.44,7.6,17.04,234,563,0],["FELIPE SAVIO GOMES DA COSTA","0007111a","A",8.81,8.23,17.04,235,183,1],["FERNANDA STEPHANIE BARBOSA","0055735d","N",8.13,8.18,16.31,92,-1,0],["INGRID OLIVEIRA DA COSTA","0069078i","A",8.94,8.1,17.04,236,312,0],["GABRIEL MENESES NAVARRO FERNANDES","0006778h","A",8.38,8.65,17.03,238,-1,0],["INGRID VITORIA BALBINO LOPES","0007219j","A",8.56,8.45,17.01,240,-1,0],["HELEN DE ALMEIDA REIS BEZERRA","0056443g","N",8.81,7.45,16.26,93,-1,0],["LUIZ MURTA SILVA NETO","0003116b","P",8.5,7.48,15.98,37,314,0],["DIEGO VASCONCELOS BRITO","0069072h","A",9.5,7.5,17.0,242,-1,0],["JOEL VICTOR DE ARAUJO MARINHO","0001101a","A",8.44,8.55,16.99,244,596,0],["YASMIN DE MARIA COSTA GUIMARAES","0002492c","N",8.13,8.13,16.26,94,73,0],["CAROLINA RODRIGUES FARIAS","0006656e","A",8.69,8.3,16.99,245,735,0],["TALITA MENESES DE BRITO","0068613k","A",9.13,7.85,16.98,246,612,0],["MAYARA MELO SOARES","0057753e","A",9.31,7.63,16.94,249,206,0],["BRUNO FELIPE BARBOZA DE PAIVA","0006386b","N",8.81,7.43,16.24,95,549,0],["LUCAS DE OLIVEIRA CARNEIRO","0069246d","A",8.94,8.0,16.94,250,218,0],["FRANCISCO ALISON SILVA AQUINO","0020401i","A",8.81,8.13,16.94,251,-1,0],["FLAVIA MONTEIRO DA ROCHA","0012270b","P",7.88,8.1,15.98,38,-1,0],["THIAGO SANTOS ALVES","0058199j","N",7.44,8.8,16.24,96,-1,0],["LUIS MIGUEL ALVES DE SOUZA","0069398e","A",8.44,8.5,16.94,252,-1,0],["NICOLE TRAJANO MARTINS","0016253k","A",8.44,8.5,16.94,253,-1,0],["ITALO FERNANDES SOUZA","0005521j","A",8.88,8.05,16.93,254,-1,0],["VITOR HUGO DOS SANTOS","0022920j","N",7.63,8.6,16.23,97,-1,0],["SAMUEL TERRA SOUSA LEITE","0013309h","A",8.75,8.18,16.93,255,-1,0],["AUGUSTO SOUZA TAVARES","0031230h","A",9.44,7.48,16.92,256,-1,0],["GUSTAVO MARANHAO PAES DE LIRA","0002805i","A",9.31,7.6,16.91,257,-1,0],["DENIS SOUZA FRAZAO","0069224e","N",8.81,7.4,16.21,98,477,0],["MARIANA AMORIM FORTE","0001752i","P",8.63,7.33,15.96,39,-1,0],["VASCONCELOS CARLOS EDUARDO SOARES ROCHA","0021759b","Q",4.94,6.78,11.72,8,-1,0],["YASMIM DE CARVALHO ALBUQUERQUE","0001022e","A",9.13,7.78,16.91,259,298,0],["ISABELA OLIVEIRA FERNANDES","0003862d","N",8.25,7.95,16.2,99,505,0],["MAIRA MESQUITA MATOS","0004454e","A",8.69,8.2,16.89,260,607,0],["MATHEUS DANTAS GOMES DE LEMOS","0005440j","I",5.63,7.28,12.91,12,479,0],["DAVID VERAS BEZERRA","0009371d","A",8.88,8.0,16.88,261,319,0],["GEOVANNA STEFANNE DA SILVA DIAS","0002681f","N",7.69,8.5,16.19,100,501,0],["LIZ NOVAIS DA SILVA","0069798j","A",8.81,8.05,16.86,262,-1,0],["RAVANNY LANDIM BEZERRA","0002089i","A",8.63,8.23,16.86,263,0,0],["PEDRO VICTOR FERREIRA CAVALCANTE","0059122b","P",9.0,6.95,15.95,40,-1,0],["MATEUS NEVES DE JESUS","0002484d","N",7.63,8.55,16.18,101,577,0],["ANTONIO EDUARDO DE ALMEIDA NETO","0002343h","A",9.25,7.6,16.85,264,519,0],["GESSYKA MARIA PINTO PINHEIRO DE SOUZA","0055889i","A",8.5,8.35,16.85,265,268,0],["VINICIUS PAES MALVEIRA","0009416k","A",9.38,7.45,16.83,267,-1,0],["TIAGO SANTOS SIMPLES DE OLIVEIRA","0007251f","N",7.25,8.93,16.18,102,293,0],["JESSYCA ALMEIDA DE SOUSA","0009005a","A",8.38,8.45,16.83,268,-1,0],["IGOR ALLEF DE SOUSA MELO","0014750d","A",8.75,8.08,16.83,269,-1,0],["MARIA VANESSA MOURA NOGUEIRA","0002271i","A",8.75,8.08,16.83,270,-1,0],["ISABELLA COSTA GUIMARAES","0009771i","N",8.56,7.6,16.16,103,213,0],["BRUNO HENRIQUE SOUSA DE FIGUEIREDO","0059167b","P",7.81,8.13,15.94,41,-1,0],["GABRIELA DE MENESES UCHOA CAVALCANTI","0005640g","A",8.44,8.38,16.82,271,7,0],["DANIEL AUGUSTO DUARTE DE MORAIS","0015818f","A",8.44,8.38,16.82,272,-1,0],["MARCELA FLAVIA MILEO VIEIRA","0004951h","N",8.06,8.1,16.16,104,-1,0],["PEDRO HENRIQUE FELIX MARQUES","0007827k","A",8.44,8.38,16.82,273,-1,0],["DAVI CAVALCANTE LEITE","0004931b","A",8.56,8.25,16.81,274,-1,0]],"ajLotes":[[2027,3,26],[2027,6,16],[2027,8,17],[2027,11,10],[2028,2,25],[2028,5,20],[2028,8,14],[2028,11,16],[2029,2,30],[2029,5,17],[2029,8,21],[2029,11,12]],"tecLotes":[[2027,2,40],[2027,3,22],[2027,5,34],[2027,7,17],[2027,9,31],[2027,11,26],[2028,2,35],[2028,4,20],[2028,5,33],[2028,7,27],[2028,9,19],[2028,11,36],[2029,2,31],[2029,4,24],[2029,5,36],[2029,7,20],[2029,9,27],[2029,11,24]],"pat":"ANAAPNAAANAAANPAINAAANAAPNQAANAAANPAANAAANAAPNAAANIAANPAANAAANAAPNAAANAAANPQANAAANAIPNAAANAAANPAANAAANAAPNAAANAAANPAINAAANAAPNQAANAAANPAANAAANAAPNAAANIAANPAANAAANAAPNAAANAAANPQANAAANIAPNAAANAAANPAANAAANAAPNAAANAAANPIANAAANAAPNQAANAAANPAANAAANAAPNAAINAAANPAANAAANAAPNAAANAAANPQANAAANIAPNAAANAAANPAANAAANAAPNAAANAAANPIANAAANAAPNQAANAAANPAANAAANAAPNAIANAAANPAANAAANAAPNAAANAAANPQANAAINAAPNAAANAAANPAANAAANAAPNAAANAAANPIANAAANAAPNQAANAAANPAANAAANAAPNIAANAAANPAANAAANAAPNAAANAAANPQANAIANAAPNAAANAAANPAANAAANAAPNAAANAAINPAANAAANAAPNQAANAAANPAANAAANAAPNIAANAAANPAANAAANAAPNAAANAAANP"}</script>
+<script>
+// ===== Motor de simulação (puro, sem DOM) =====
+const LT = ['A', 'N', 'P', 'I', 'Q'];
+const LNAME = { A: 'AC', N: 'NEG', P: 'PCD', I: 'IND', Q: 'QUI' };
+const LLONG = { A: 'Ampla concorrência', N: 'Negros', P: 'Pessoas com deficiência', I: 'Indígenas', Q: 'Quilombolas' };
+const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const FALLBACK_AJ = { A: ['N', 'P', 'I', 'Q'], N: ['I', 'Q', 'A'], P: ['A'], I: ['N', 'Q', 'A'], Q: ['N', 'I', 'A'] };
+
+function fmtDate(d) {
+  if (d == null || !isFinite(d)) return 'após o período';
+  return MES[((d % 12) + 12) % 12] + '/' + Math.floor(d / 12);
+}
+function patternAt(PAT, n) {
+  if (n <= PAT.length) return PAT[n - 1];
+  return PAT[400 + ((n - 501) % 100 + 100) % 100];
+}
+
+// ---- totais anuais ----
+function ajajYears(P, nPeople) {
+  const out = []; let acum = 0, usedSum = 0;
+  const part = P.criados > 0 ? P.novos / P.criados : 0;
+  P.years.forEach((Y, i) => {
+    const novos = (Y.novos === null || Y.novos === '' || Y.novos === undefined) ? P.novos : +Y.novos;
+    const quadro = P.quadro2025 + P.criados * (Y.y - 2025);
+    const vac = P.cenario === 'Print' ? P.vacPrint * 3 : quadro * (P.taxas[P.cenario] || 0) * part;
+    const cargos = novos + vac;
+    const pos = cargos / (1 - Math.min(0.95, Y.desist));
+    acum += pos;
+    const est = Math.max(0, Math.round(acum) - usedSum);
+    const manual = (Y.manual === null || Y.manual === '' || Y.manual === undefined) ? null : Math.max(0, Math.round(+Y.manual));
+    const used = manual != null ? manual : est;
+    usedSum += used;
+    out.push({ y: Y.y, novos, quadro, vac, cargos, pos, est, manual, used });
+  });
+  return out;
+}
+
+function tecYears(P, reab) {
+  const out = []; let acum = 0, usedSum = 0;
+  P.years.forEach((Y, i) => {
+    const novos = +Y.novos || 0;
+    const quadro = P.quadro2025 + P.criados * (Y.y - 2025);
+    const vac = quadro * (P.taxas[P.cenario] || 0) * P.part;
+    const est0 = i === 0 ? P.estoque + P.tecAjaj : 0;
+    const r = reab[Y.y] || 0;
+    const cargos = est0 + novos + vac + r;
+    const pos = cargos / (1 - Math.min(0.95, P.desist));
+    acum += pos;
+    const need = Math.max(0, Math.round(acum) - usedSum);
+    const teto = (Y.teto === null || Y.teto === '' || Y.teto === undefined) ? Infinity : +Y.teto;
+    const est = Math.min(teto, need);
+    const manual = (Y.manual === null || Y.manual === '' || Y.manual === undefined) ? null : Math.max(0, Math.round(+Y.manual));
+    const used = manual != null ? manual : est;
+    usedSum += used;
+    out.push({ y: Y.y, novos, quadro, vac, estoque: est0, reab: r, cargos, pos, need, est, manual, used, pend: Math.max(0, Math.round(acum) - usedSum) });
+  });
+  return out;
+}
+
+// ---- lotes a partir da configuração ----
+function buildLotes(yearsCfg, totals) {
+  const lotes = []; let slot = 1, id = 1;
+  yearsCfg.forEach((Y, yi) => {
+    const tot = totals[yi].used;
+    const n = Y.lotes.length;
+    let sumOthers = 0;
+    Y.lotes.forEach((L, k) => { if (k < n - 1) sumOthers += Math.max(0, Math.round(+L.s || 0)); });
+    const lastSize = Math.max(0, tot - sumOthers);
+    totals[yi].over = Math.max(0, sumOthers - tot);
+    totals[yi].lastSize = lastSize;
+    let yearCalled = 0;
+    Y.lotes.forEach((L, k) => {
+      const size = k === n - 1 ? lastSize : Math.max(0, Math.round(+L.s || 0));
+      yearCalled += size;
+      if (size <= 0) return;
+      lotes.push({ id: id++, y: Y.y, k: k + 1, m: L.m, date: Y.y * 12 + (L.m - 1), start: slot, size, yi });
+      slot += size;
+    });
+    totals[yi].called = yearCalled;
+  });
+  return lotes;
+}
+
+// ---- simulação por eventos (lotes regulares + complementares de TD) ----
+// opt: {n, lists:{t:[idx]}, lotes, PAT, td:Set, delay, refuse(i,date), fallback, placeholders, exclude:{i:t}}
+function simulate(opt) {
+  const { n, lists, lotes, PAT, td, delay } = opt;
+  const rec = new Array(n);
+  const ptr = { A: 0, N: 0, P: 0, I: 0, Q: 0 };
+  const beyond = { A: 0, N: 0, P: 0, I: 0, Q: 0 };
+  const calls = [];       // chamadas em ordem cronológica
+  const compLotes = {};   // date -> {date, calls:[]}
+  const excl = opt.exclude || {};
+  let lastSlot = 0, seq = 0;
+
+  function take(t, date, ctx, noPh) {
+    const chain = [t].concat(opt.fallback ? (opt.fallback[t] || []) : []);
+    for (const tt of chain) {
+      const L = lists[tt] || [];
+      while (ptr[tt] < L.length) {
+        const i = L[ptr[tt]];
+        if (rec[i] || excl[i] === tt) { ptr[tt]++; continue; }
+        if (opt.refuse && opt.refuse(i, date)) {
+          rec[i] = { type: 'refuse', date, lote: ctx.lote, via: tt, atSlot: ctx.slot, comp: !!ctx.comp, tail: !!ctx.tail };
+          ptr[tt]++;
+          continue;
+        }
+        ptr[tt]++;
+        return { i, via: tt };
+      }
+      if (opt.placeholders) {
+        if (noPh) return { ph: tt, k: ++beyond[tt], via: tt, hidden: true };
+        return { ph: tt, k: ++beyond[tt], via: tt };
+      }
+    }
+    return null;
+  }
+
+  const comps = [];
+  function processLote(L) {
+    for (let s = L.start; s < L.start + L.size; s++) {
+      const t = patternAt(PAT, s);
+      const r = take(t, L.date, { lote: L.id, slot: s });
+      lastSlot = s;
+      if (!r) continue;
+      const c = { slot: s, via: r.via, lote: L.id, date: L.date, comp: false, slotType: t };
+      if (r.ph) { c.ph = r.ph; c.k = r.k; }
+      else {
+        c.i = r.i; rec[r.i] = { type: 'call', slot: s, via: r.via, lote: L.id, date: L.date, comp: false, slotType: t };
+        if (td.has(r.i)) comps.push({ date: L.date + delay, via: r.via, replaces: r.i, slot: s, seq: seq++ });
+      }
+      calls.push(c);
+    }
+  }
+  function processComp(cp) {
+    const r = take(cp.via, cp.date, { lote: 'C' + cp.date, slot: cp.slot, comp: true });
+    if (!r) return;
+    const key = 'C' + cp.date;
+    if (!compLotes[key]) compLotes[key] = { id: key, date: cp.date, comp: true, calls: [] };
+    const c = { slot: cp.slot, via: r.via, lote: key, date: cp.date, comp: true, replaces: cp.replaces };
+    if (r.ph) { c.ph = r.ph; c.k = r.k; }
+    else {
+      c.i = r.i;
+      rec[r.i] = { type: 'call', slot: cp.slot, via: r.via, lote: key, date: cp.date, comp: true, replaces: cp.replaces };
+      if (td.has(r.i)) comps.push({ date: cp.date + delay, via: r.via, replaces: r.i, slot: cp.slot, seq: seq++ });
+    }
+    rec[cp.replaces].replacedBy = c;
+    compLotes[key].calls.push(c);
+    calls.push(c);
+  }
+
+  let ri = 0;
+  const regs = lotes.slice().sort((a, b) => a.date - b.date || a.id - b.id);
+  while (ri < regs.length || comps.length) {
+    if (comps.length > 1) comps.sort((a, b) => a.date - b.date || a.seq - b.seq);
+    if (comps.length && (ri >= regs.length || comps[0].date <= regs[ri].date)) processComp(comps.shift());
+    else processLote(regs[ri++]);
+  }
+  const horizonSlot = lastSlot;
+
+  // cauda: ordem depois do período (sem datas)
+  let s = lastSlot + 1; const maxSlot = lastSlot + n * 3 + 50;
+  const left = () => { let c = 0; for (let i = 0; i < n; i++) if (!rec[i]) c++; return c; };
+  let remaining = left();
+  while (remaining > 0 && s <= maxSlot) {
+    const t = patternAt(PAT, s);
+    const r = take(t, Infinity, { lote: 'T', slot: s, tail: true }, true);
+    if (r && r.i != null) {
+      rec[r.i] = { type: 'call', slot: s, via: r.via, lote: 'T', date: null, comp: false, tail: true, slotType: t };
+    }
+    if (!r) break;
+    if (s % 50 === 0) remaining = left();
+    s++;
+  }
+  return { rec, calls, compLotes, horizonSlot, beyond };
+}
+
+// ---- listas ordenadas (AJAJ: total com títulos desc, nota preliminar desc, ordem original) ----
+function ajajLists(people) {
+  const lists = { A: [], N: [], P: [], I: [], Q: [] };
+  people.forEach((p, i) => { for (const t of p.lists) lists[t].push(i); });
+  for (const t of LT) lists[t].sort((a, b) => (people[b].tot - people[a].tot) || (people[b].pre - people[a].pre) || (a - b));
+  return lists;
+}
+function compRanks(people, lists) {
+  const rank = {};
+  for (const t of LT) {
+    const L = lists[t]; const r = new Map(); let prev = null, pr = 0;
+    L.forEach((i, k) => { const v = people[i].tot; if (prev === null || v !== prev) { pr = k + 1; prev = v; } r.set(i, pr); });
+    rank[t] = r;
+  }
+  return rank;
+}
+function tecLists(tec) {
+  const lists = { A: [], N: [], P: [], I: [], Q: [] };
+  tec.forEach((p, i) => lists[p.list].push(i));
+  for (const t of LT) lists[t].sort((a, b) => tec[a].cls - tec[b].cls || a - b);
+  return lists;
+}
+
+if (typeof module !== 'undefined') module.exports = { LT, LNAME, MES, FALLBACK_AJ, fmtDate, patternAt, ajajYears, tecYears, buildLotes, simulate, ajajLists, compRanks, tecLists };
+
+</script>
+<script>
+(function () {
+'use strict';
+const D = JSON.parse(document.getElementById('data').textContent);
+const KEY = 'tjce-convocacao-v1';
+const $ = (s, r) => (r || document).querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const r2 = x => Math.round(x * 100) / 100;
+const f2 = x => (x == null || isNaN(x)) ? '—' : (+x).toFixed(2).replace('.', ',');
+const f1 = x => (x == null || isNaN(x)) ? '—' : (+x).toFixed(1).replace('.', ',');
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// ---------- dados base ----------
+const AJ0 = D.aj.map((r, i) => ({ i, name: r[0], insc: r[1], lists: r[2].split(''), pre: r[3], tit0: r[4], proj0: r[5], key: norm(r[0] + ' ' + r[1]) }));
+const TEC0 = D.tec.map((r, i) => ({ i, name: r[0], insc: r[1], list: r[2], obj: r[3], disc: r[4], tot: r[5], cls: r[6], aj: r[7], adia0: r[8], pdf: i + 1, key: norm(r[0] + ' ' + r[1]) }));
+const AJ2TEC = {}; TEC0.forEach(t => { if (t.aj >= 0) AJ2TEC[t.aj] = t.i; });
+
+// ordem original da planilha (sem edições, sem TD)
+const ORIG_AJ = (() => {
+  const ppl = AJ0.map(p => ({ ...p, tit: p.tit0, tot: r2(p.pre + p.tit0) }));
+  const s = simulate({ n: ppl.length, lists: ajajLists(ppl), lotes: [], PAT: D.pat, td: new Set(), delay: 1, fallback: FALLBACK_AJ });
+  return s.rec.map(r => r.slot);
+})();
+
+function spreadMonths(n) {
+  if (n <= 1) return [6];
+  const out = []; for (let k = 0; k < n; k++) out.push(Math.min(12, Math.max(1, Math.round(2 + k * 9 / (n - 1))))); return out;
+}
+function defaults() {
+  return {
+    cargo: 'aj',
+    aj: {
+      P: {
+        cenario: 'Base', taxas: { Conservador: 1.5, Base: 2, Otimista: 3 }, novos: 50, criados: 70, quadro2025: 723, vacPrint: 6, delay: 1,
+        years: [2027, 2028, 2029].map((y, i) => ({ y, desist: [10, 15, 20][i], novos: null, manual: null, lotes: D.ajLotes.filter(l => l[0] === y).map(l => ({ m: l[1], s: l[2] })) }))
+      },
+      edits: {}, td: {}
+    },
+    tec: {
+      P: {
+        cenario: 'Conservador', taxas: { Conservador: 1, Base: 2, Otimista: 3 }, estoque: 104, tecAjaj: 16, quadro2025: 1372, criados: 85, part: 88.2, desist: 5,
+        mesesSaida: 3, mesesAdia: 18, corte: 200, delay: 1,
+        years: [2027, 2028, 2029].map(y => ({ y, novos: 85, teto: 170, manual: null, lotes: D.tecLotes.filter(l => l[0] === y).map(l => ({ m: l[1], s: l[2] })) }))
+      },
+      td: {}, adia: {}
+    },
+    ui: { q: '', lista: '', show: '', lote: null, tail: false }
+  };
+}
+let S = defaults();
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY); if (!raw) return;
+    applyState(JSON.parse(raw));
+  } catch (e) { /* sem armazenamento: segue com o padrão */ }
+}
+function applyState(o) {
+  const d = defaults();
+  if (!o || typeof o !== 'object') return;
+  S = {
+    cargo: o.cargo === 'tec' ? 'tec' : 'aj',
+    aj: { P: Object.assign(d.aj.P, o.aj && o.aj.P), edits: (o.aj && o.aj.edits) || {}, td: (o.aj && o.aj.td) || {} },
+    tec: { P: Object.assign(d.tec.P, o.tec && o.tec.P), td: (o.tec && o.tec.td) || {}, adia: (o.tec && o.tec.adia) || {} },
+    ui: Object.assign(d.ui, o.ui || {})
+  };
+  S.ui.lote = null;
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } }
+
+// ---------- cálculo ----------
+let AJ = null, TC = null;
+function pctObj(o) { const r = {}; for (const k in o) r[k] = (+o[k] || 0) / 100; return r; }
+function tdSet(o) { return new Set(Object.keys(o).filter(k => o[k]).map(Number)); }
+
+function computeAJ() {
+  const A = S.aj, P = A.P;
+  const people = AJ0.map(p => {
+    const e = A.edits[p.i];
+    const tit = e && e.tit != null ? +e.tit : p.tit0;
+    const proj = e && e.proj != null ? e.proj : p.proj0;
+    return { ...p, tit, proj, edited: !!(e && e.tit != null && +e.tit !== p.tit0), tot: r2(p.pre + tit) };
+  });
+  const lists = ajajLists(people), ranks = compRanks(people, lists);
+  const EP = { cenario: P.cenario, taxas: pctObj(P.taxas), novos: +P.novos || 0, criados: +P.criados || 0, quadro2025: +P.quadro2025 || 0, vacPrint: +P.vacPrint || 0, years: P.years.map(Y => ({ ...Y, desist: (+Y.desist || 0) / 100 })) };
+  const totals = ajajYears(EP, people.length);
+  const lotes = buildLotes(P.years, totals);
+  const td = tdSet(A.td);
+  const opt = { n: people.length, lists, lotes, PAT: D.pat, delay: Math.max(0, Math.round(+P.delay || 0)), fallback: FALLBACK_AJ };
+  const base = simulate({ ...opt, td: new Set() });
+  const cur = td.size ? simulate({ ...opt, td }) : base;
+  return { kind: 'aj', people, lists, ranks, totals, lotes, base, cur, td, opt };
+}
+
+function computeTEC(aj) {
+  const T = S.tec, P = T.P;
+  const people = TEC0.map(p => ({ ...p, adia: T.adia[p.i] != null ? T.adia[p.i] : p.adia0 }));
+  const lists = tecLists(people);
+  const corte = (P.corte === null || P.corte === '' || +P.corte <= 0) ? Infinity : +P.corte;
+  people.forEach(p => {
+    p.ajSlot = null; p.ajDate = null; p.entry = null; p.ajTd = false;
+    if (p.aj < 0) return;
+    const r = aj.cur.rec[p.aj];
+    p.ajSlot = r ? r.slot : null;
+    if (aj.td.has(p.aj)) { p.ajTd = true; return; }
+    if (!r || r.type !== 'call' || r.date == null || r.slot > corte) return;
+    p.ajDate = r.date;
+    p.entry = r.date + (p.adia ? (+P.mesesAdia || 0) : 0);
+  });
+  const td = tdSet(T.td);
+  const refuse = (i, d) => people[i].entry != null && people[i].entry <= d;
+  const EP = { cenario: P.cenario, taxas: pctObj(P.taxas), estoque: +P.estoque || 0, tecAjaj: +P.tecAjaj || 0, quadro2025: +P.quadro2025 || 0, criados: +P.criados || 0, part: (+P.part || 0) / 100, desist: (+P.desist || 0) / 100, years: P.years };
+  const delay = Math.max(0, Math.round(+P.delay || 0)), ms = +P.mesesSaida || 0;
+  let reab = {}, totals, lotes, cur;
+  for (let it = 0; it < 14; it++) {
+    totals = tecYears(EP, reab);
+    lotes = buildLotes(P.years, totals);
+    cur = simulate({ n: people.length, lists, lotes, PAT: D.pat, td, delay, refuse, placeholders: true });
+    const nr = {};
+    people.forEach((p, i) => {
+      const r = cur.rec[i];
+      if (r && r.type === 'call' && r.date != null && !td.has(i) && p.entry != null && p.entry > r.date) {
+        const y = Math.floor((p.entry + ms) / 12); nr[y] = (nr[y] || 0) + 1;
+      }
+    });
+    if (JSON.stringify(nr) === JSON.stringify(reab)) break;
+    reab = nr;
+  }
+  const base = td.size ? simulate({ n: people.length, lists, lotes, PAT: D.pat, td: new Set(), delay, refuse, placeholders: true }) : cur;
+  return { kind: 'tec', people, lists, totals, lotes, base, cur, td, reab, refuse, delay };
+}
+
+function recompute() { AJ = computeAJ(); TC = computeTEC(AJ); }
+
+// ---------- cores dos lotes ----------
+const YH = [214, 148, 30, 282, 350, 186, 60];
+function loteHue(L, lotes) {
+  const inYear = lotes.filter(x => x.y === L.y);
+  const n = inYear.length, k = inYear.indexOf(L);
+  const spread = Math.min(16, 48 / Math.max(1, n - 1));
+  return Math.round(YH[L.yi % YH.length] + (k - (n - 1) / 2) * spread);
+}
+
+// ---------- helpers de linha ----------
+function R() { return S.cargo === 'aj' ? AJ : TC; }
+function loteById(res, id) { return res.lotes.find(l => l.id === id); }
+function loteLabel(res, r) {
+  if (!r) return '—';
+  if (r.lote === 'T') return 'após';
+  if (String(r.lote)[0] === 'C') return 'Compl. ' + fmtDate(r.date);
+  const L = loteById(res, r.lote); return L ? 'L' + L.id : '—';
+}
+function prevSameType(slot, t) { for (let s = slot - 1; s >= 1; s--) if (patternAt(D.pat, s) === t) return s; return null; }
+function personName(res, i) { return res.people[i] ? res.people[i].name : '?'; }
+
+// ---------- painel ----------
+function fld(label, path, val, hint, attrs) {
+  return `<label class="fld"><span>${label}${hint ? `<small>${hint}</small>` : ''}</span><input type="number" id="f-${path.replace(/\./g, '-')}" data-path="${path}" value="${val == null ? '' : esc(val)}" ${attrs || ''}></label>`;
+}
+function renderPanel() {
+  const c = S.cargo, P = S[c].P, res = R();
+  const opts = c === 'aj' ? ['Conservador', 'Base', 'Otimista', 'Print'] : ['Conservador', 'Base', 'Otimista'];
+  let h = `<div class="phead"><h2>Premissas e lotes</h2><button class="btn sm ptoggle" data-act="ptoggle">Mostrar / ocultar</button></div><div class="pbody">`;
+  h += `<div class="psec"><h3>Vacância</h3>
+    <label class="fld wide"><span>Cenário</span><select id="f-${c}-cen" data-path="${c}.P.cenario" data-struct="1">${opts.map(o => `<option ${o === P.cenario ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
+    ${['Conservador', 'Base', 'Otimista'].map(k => fld('Taxa de saída · ' + k + ' (% a.a.)', `${c}.P.taxas.${k}`, P.taxas[k], null, 'step="0.1" min="0"')).join('')}
+    ${c === 'aj' ? fld('Vacância por quadrimestre (cenário Print)', 'aj.P.vacPrint', P.vacPrint, '× 3 por ano', 'step="1" min="0"') : ''}
+  </div>`;
+  if (c === 'aj') {
+    h += `<div class="psec"><h3>Cargos</h3>
+      ${fld('Cargos de analista criados por ano', 'aj.P.criados', P.criados, 'Lei 19.581/2025', 'min="0"')}
+      ${fld('Cargos novos de AJAJ por ano', 'aj.P.novos', P.novos, 'participação nas vacâncias = este ÷ criados', 'min="0"')}
+      ${fld('Quadro de analistas em 2025', 'aj.P.quadro2025', P.quadro2025, null, 'min="0"')}
+    </div>`;
+    h += `<div class="psec"><h3>Convocações por ano</h3><div class="scroll"><table class="ytbl"><thead><tr><th>Ano</th><th>Cargos novos</th><th>Desist. %</th><th>Estimado</th><th>Ajuste</th><th>Usado</th></tr></thead><tbody>
+      ${P.years.map((Y, yi) => `<tr><td><b>${Y.y}</b></td>
+        <td><input type="number" id="f-aj-yn-${yi}" data-path="aj.P.years.${yi}.novos" value="${Y.novos == null ? '' : Y.novos}" placeholder="${P.novos}" min="0"></td>
+        <td><input type="number" id="f-aj-yd-${yi}" data-path="aj.P.years.${yi}.desist" value="${Y.desist}" step="1" min="0" max="90"></td>
+        <td class="out" data-out="est-${yi}">${res.totals[yi].est}</td>
+        <td><input type="number" id="f-aj-ym-${yi}" data-path="aj.P.years.${yi}.manual" value="${Y.manual == null ? '' : Y.manual}" placeholder="—" min="0"></td>
+        <td class="out strong" data-out="used-${yi}">${res.totals[yi].used}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">Estimado = (cargos novos + vacância) ÷ (1 − desistência do ano). Preencha “Ajuste” para fixar quantas pessoas são chamadas no ano.</p></div>`;
+  } else {
+    h += `<div class="psec"><h3>Cargos e fluxo</h3>
+      ${fld('Cargos vagos existentes (2026)', 'tec.P.estoque', P.estoque, 'entram em 2027', 'min="0"')}
+      ${fld('Técnicos atuais que vão para AJAJ', 'tec.P.tecAjaj', P.tecAjaj, 'viram vacância em 2027', 'min="0"')}
+      ${fld('Quadro de técnicos em 2025', 'tec.P.quadro2025', P.quadro2025, null, 'min="0"')}
+      ${fld('Cargos de técnico criados por ano', 'tec.P.criados', P.criados, 'só para crescer o quadro', 'min="0"')}
+      ${fld('Participação da área judiciária (%)', 'tec.P.part', P.part, null, 'step="0.1" min="0" max="100"')}
+      ${fld('Desistência geral (%)', 'tec.P.desist', P.desist, 'fora a ida para AJAJ', 'step="0.5" min="0" max="90"')}
+    </div>
+    <div class="psec"><h3>Aprovados também em AJAJ</h3>
+      ${fld('Corte da ordem de AJAJ considerada', 'tec.P.corte', P.corte, 'vazio = todos os chamados na simulação de AJAJ', 'min="0"')}
+      ${fld('Meses até a vaga de técnico reabrir', 'tec.P.mesesSaida', P.mesesSaida, 'após a convocação em AJAJ', 'min="0"')}
+      ${fld('Adiamento de quem adia AJAJ (meses)', 'tec.P.mesesAdia', P.mesesAdia, 'marque “adia” na ficha da pessoa', 'min="0"')}
+      <p class="note">As datas de AJAJ vêm da aba de Analista: editar títulos ou lotes lá muda quem recusa ou sai do técnico aqui.</p>
+    </div>`;
+    h += `<div class="psec"><h3>Convocações por ano</h3><div class="scroll"><table class="ytbl"><thead><tr><th>Ano</th><th>Novos</th><th>Teto</th><th>Reab.</th><th>Calc.</th><th>Ajuste</th><th>Usado</th></tr></thead><tbody>
+      ${P.years.map((Y, yi) => `<tr><td><b>${Y.y}</b></td>
+        <td><input type="number" id="f-tec-yn-${yi}" data-path="tec.P.years.${yi}.novos" value="${Y.novos}" min="0"></td>
+        <td><input type="number" id="f-tec-yt-${yi}" data-path="tec.P.years.${yi}.teto" value="${Y.teto == null ? '' : Y.teto}" placeholder="∞" min="0"></td>
+        <td class="out" data-out="reab-${yi}">${res.totals[yi].reab}</td>
+        <td class="out" data-out="est-${yi}">${res.totals[yi].est}</td>
+        <td><input type="number" id="f-tec-ym-${yi}" data-path="tec.P.years.${yi}.manual" value="${Y.manual == null ? '' : Y.manual}" placeholder="—" min="0"></td>
+        <td class="out strong" data-out="used-${yi}">${res.totals[yi].used}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">Reab. = vagas de técnico reabertas por quem assumiu e depois foi chamado em AJAJ (calculado pessoa a pessoa). O excesso sobre o teto passa para o ano seguinte.</p></div>`;
+  }
+  // lotes
+  h += `<div class="psec"><h3>Lotes</h3>`;
+  P.years.forEach((Y, yi) => {
+    const t = res.totals[yi], n = Y.lotes.length;
+    h += `<div class="ycard"><div class="yhead"><b>${Y.y}</b>
+      <span class="stepper"><button data-act="lotesN" data-yi="${yi}" data-d="-1" aria-label="Menos um lote em ${Y.y}">−</button><span>${n} lote${n > 1 ? 's' : ''}</span><button data-act="lotesN" data-yi="${yi}" data-d="1" aria-label="Mais um lote em ${Y.y}">+</button></span></div>`;
+    Y.lotes.forEach((L, k) => {
+      const last = k === n - 1;
+      const Lobj = res.lotes.find(x => x.y === Y.y && x.k === k + 1);
+      const hue = Lobj ? loteHue(Lobj, res.lotes) : 0;
+      h += `<div class="lrow"><span class="sw" style="--lc:${Lobj ? `hsl(${hue} 62% 50%)` : 'var(--line)'}"></span><span>${k + 1}º</span>
+        <select id="f-${c}-lm-${yi}-${k}" data-path="${c}.P.years.${yi}.lotes.${k}.m" aria-label="Mês do ${k + 1}º lote de ${Y.y}">${MES.map((m, mi) => `<option value="${mi + 1}" ${mi + 1 === +L.m ? 'selected' : ''}>${m}/${Y.y}</option>`).join('')}</select>
+        ${last ? `<span class="auto" data-out="last-${yi}" title="Calculado para fechar o total do ano">${t.lastSize} auto</span>` : `<input type="number" id="f-${c}-ls-${yi}-${k}" data-path="${c}.P.years.${yi}.lotes.${k}.s" value="${L.s}" min="0" aria-label="Pessoas no ${k + 1}º lote de ${Y.y}">`}</div>`;
+    });
+    h += `<div class="warnline" data-out="over-${yi}">${t.over ? `Os lotes passam do total do ano em ${t.over}; o último ficou zerado.` : ''}</div></div>`;
+  });
+  h += `<div class="actions"><button class="btn sm" data-act="addYear">+ ano</button>${P.years.length > 1 ? `<button class="btn sm" data-act="rmYear">− último ano</button>` : ''}</div>
+    <p class="note">O último lote de cada ano é calculado para fechar o total. Os meses e tamanhos dos outros são editáveis.</p></div>`;
+  // TD
+  const tdN = Object.values(S[c].td).filter(Boolean).length;
+  h += `<div class="psec"><h3>Desistências (TD)</h3>
+    ${fld('Lote complementar sai após (meses)', `${c}.P.delay`, P.delay, 'a contar do lote em que a pessoa foi chamada', 'min="0" max="24"')}
+    <p class="note">Marque “TD” na linha da pessoa. Ela desiste e o próximo da mesma lista pela qual foi chamada (ampla ou cota) entra num lote complementar.</p>
+    <div class="actions"><button class="btn sm" data-act="clearTd" ${tdN ? '' : 'disabled'}>Limpar ${tdN} TD${tdN === 1 ? '' : 's'}</button>
+    ${c === 'aj' ? `<button class="btn sm" data-act="clearEdits" ${Object.keys(S.aj.edits).length ? '' : 'disabled'}>Desfazer edições de títulos (${Object.keys(S.aj.edits).length})</button>` : ''}</div>
+  </div></div>`;
+  const panel = $('#panel'); const st = panel.scrollTop;
+  panel.innerHTML = h; panel.scrollTop = st;
+}
+function renderOutputs() {
+  const res = R();
+  res.totals.forEach((t, yi) => {
+    const set = (k, v) => { const el = document.querySelector(`[data-out="${k}-${yi}"]`); if (el) el.textContent = v; };
+    set('est', t.est); set('used', t.used); set('last', t.lastSize + ' auto'); if (t.reab != null) set('reab', t.reab);
+    set('over', t.over ? `Os lotes passam do total do ano em ${t.over}; o último ficou zerado.` : '');
+  });
+}
+
+// ---------- resumo ----------
+function yearStats(res) {
+  const { cur, lotes } = res;
+  const isAJ = res.kind === 'aj';
+  const out = res.totals.map((t, yi) => ({ y: t.y, t, lotes: lotes.filter(l => l.yi === yi), comp: 0, compN: 0, by: { A: 0, N: 0, P: 0, I: 0, Q: 0 }, maxCls: {}, refuse: 0, assume: 0 }));
+  const yIdx = y => out.findIndex(o => o.y === y);
+  cur.calls.forEach(c => {
+    const yi = yIdx(Math.floor(c.date / 12)); if (yi < 0) return;
+    const o = out[yi]; o.by[c.via]++;
+    if (c.comp) o.comp++;
+  });
+  Object.values(cur.compLotes).forEach(cl => { const yi = yIdx(Math.floor(cl.date / 12)); if (yi >= 0) out[yi].compN++; });
+  // até onde anda (acumulado)
+  const best = { A: 0, N: 0, P: 0, I: 0, Q: 0 }, ph = { A: 0, N: 0, P: 0, I: 0, Q: 0 };
+  const callsSorted = cur.calls.slice().sort((a, b) => a.date - b.date);
+  let ci = 0;
+  out.forEach(o => {
+    const end = (o.y + 1) * 12;
+    while (ci < callsSorted.length && callsSorted[ci].date < end) {
+      const c = callsSorted[ci++];
+      if (c.ph) { ph[c.via] = Math.max(ph[c.via], c.k); continue; }
+      const v = isAJ ? res.ranks[c.via].get(c.i) : res.people[c.i].cls;
+      if (v > best[c.via]) best[c.via] = v;
+    }
+    o.maxCls = { ...best }; o.ph = { ...ph };
+  });
+  if (!isAJ) {
+    res.people.forEach((p, i) => {
+      const r = cur.rec[i]; if (!r || r.date == null || !isFinite(r.date)) return;
+      const yi = yIdx(Math.floor(r.date / 12)); if (yi < 0) return;
+      if (r.type === 'refuse') out[yi].refuse++;
+      else if (p.entry != null && p.entry > r.date && !res.td.has(i)) out[yi].assume++;
+    });
+  }
+  return out;
+}
+function renderSummary() {
+  const res = R(), isAJ = res.kind === 'aj';
+  const ys = yearStats(res);
+  const regular = res.lotes.reduce((a, l) => a + l.size, 0);
+  const compCalls = res.cur.calls.filter(c => c.comp && c.date < (res.totals[res.totals.length - 1].y + 1) * 12).length;
+  const tdN = res.td.size;
+  const y0 = res.totals[0].y, y1 = res.totals[res.totals.length - 1].y;
+  let k = `<div class="kpi"><div class="k">Convocados ${y0}–${y1}</div><div class="v">${regular + compCalls}</div><div class="s">${regular} em lotes regulares${compCalls ? ` + ${compCalls} em complementares` : ''}</div></div>
+    <div class="kpi"><div class="k">Última posição alcançada</div><div class="v">${res.cur.horizonSlot}ª</div><div class="s">na ordem de nomeação ${isAJ ? 'com títulos' : 'efetiva'}</div></div>
+    <div class="kpi"><div class="k">TDs marcados</div><div class="v">${tdN}</div><div class="s">${tdN ? `${compCalls} substituto${compCalls === 1 ? '' : 's'} em ${Object.keys(res.cur.compLotes).length} lote${Object.keys(res.cur.compLotes).length === 1 ? '' : 's'} complementar${Object.keys(res.cur.compLotes).length === 1 ? '' : 'es'}` : 'marque TD na linha da pessoa'}</div></div>`;
+  if (isAJ) {
+    const projLeft = res.people.filter(p => p.proj).length;
+    const ed = Object.keys(S.aj.edits).length;
+    k += `<div class="kpi"><div class="k">Títulos projetados</div><div class="v" style="color:var(--red)">${projLeft}</div><div class="s">nomes em vermelho · ${ed} editado${ed === 1 ? '' : 's'}</div></div>`;
+  } else {
+    const ref = ys.reduce((a, o) => a + o.refuse, 0), as = ys.reduce((a, o) => a + o.assume, 0);
+    k += `<div class="kpi"><div class="k">Aprovados também em AJAJ</div><div class="v">${as + ref}</div><div class="s">${as} assumem e saem · ${ref} recusam (já em AJAJ)</div></div>`;
+  }
+  $('#kpis').innerHTML = k;
+
+  const L5 = LT.map(t => `<th>${LNAME[t]}</th>`).join('');
+  let h = `<div class="chead"><h2>Lotes por ano</h2><p class="note">${isAJ ? 'Ordem de nomeação provisória com títulos (Edital nº 06/2026). A ordem intercala as cotas e o acumulado fica em ~60% AC · 25% NEG · 10% PCD · 3% IND · 2% QUI.' : 'Ordem do PDF (400 posições) com recusas e saídas de quem também passou em AJAJ. Depois da 400ª, a vaga aparece como “próximo(a) da lista”.'}</p></div>
+  <div class="scroll"><table class="sumtbl"><thead><tr><th>Ano</th><th>Lotes</th><th>Regulares</th><th>Compl.</th><th>Posições</th>${!isAJ ? '<th>Recusas</th><th>Reabertas</th>' : ''}<th class="grp">AC</th><th>NEG</th><th>PCD</th><th>IND</th><th>QUI</th><th class="grp" colspan="5">Até onde cada lista anda (classificação, acumulado)</th></tr></thead><tbody>`;
+  ys.forEach(o => {
+    const reg = o.lotes.reduce((a, l) => a + l.size, 0);
+    const from = o.lotes.length ? o.lotes[0].start : null, to = o.lotes.length ? o.lotes[o.lotes.length - 1].start + o.lotes[o.lotes.length - 1].size - 1 : null;
+    h += `<tr><td>${o.y}</td><td>${o.lotes.length}</td><td>${reg}</td><td>${o.comp || '—'}</td><td>${from ? from + '–' + to : '—'}</td>${!isAJ ? `<td>${o.refuse}</td><td>${o.t.reab}</td>` : ''}
+      ${LT.map((t, j) => `<td class="${j === 0 ? 'grp' : ''}">${o.by[t]}</td>`).join('')}
+      ${LT.map((t, j) => `<td class="${j === 0 ? 'grp' : ''}" title="${LLONG[t]}">${LNAME[t]} ${o.maxCls[t] ? o.maxCls[t] + 'º' : '—'}${o.ph && o.ph[t] ? ` <small style="color:var(--muted)">+${o.ph[t]}</small>` : ''}</td>`).join('')}</tr>`;
+  });
+  const sum = k => ys.reduce((a, o) => a + (typeof k === 'function' ? k(o) : o[k]), 0);
+  h += `<tr class="tot"><td>Total</td><td>${sum(o => o.lotes.length)}</td><td>${regular}</td><td>${compCalls || '—'}</td><td></td>${!isAJ ? `<td>${sum('refuse')}</td><td>${sum(o => o.t.reab)}</td>` : ''}${LT.map((t, j) => `<td class="${j === 0 ? 'grp' : ''}">${sum(o => o.by[t])}</td>`).join('')}<td class="grp" colspan="5"></td></tr>`;
+  h += `</tbody></table></div>${!isAJ ? `<p class="note" style="padding:8px 14px 12px;margin:0">“+n” = a lista do PDF acabou e já se chamam n pessoas além da 400ª posição.</p>` : '<div style="height:8px"></div>'}`;
+  $('#sumcard').innerHTML = h;
+
+  // linha do tempo
+  let t = `<div class="chead"><h2>Linha do tempo dos lotes</h2><p class="note">Clique num lote para filtrar a ordem. Listrado = lote complementar de desistentes (TD).</p></div><div class="tl">`;
+  res.totals.forEach((T, yi) => {
+    const items = res.lotes.filter(l => l.yi === yi).map(l => ({ date: l.date, reg: true, l }))
+      .concat(Object.values(res.cur.compLotes).filter(c => Math.floor(c.date / 12) === T.y).map(c => ({ date: c.date, reg: false, c })))
+      .sort((a, b) => a.date - b.date || (a.reg ? 1 : -1));
+    t += `<div class="tlrow"><span class="yr">${T.y}</span><div class="tlbar">${items.map(it => it.reg
+      ? `<button class="blk ${S.ui.lote === it.l.id ? 'sel' : ''}" style="--g:${it.l.size};--h:${loteHue(it.l, res.lotes)}" data-lote="${it.l.id}" title="Lote ${it.l.id} · ${it.l.k}º de ${it.l.y} · ${fmtDate(it.l.date)} · ${it.l.size} pessoas (posições ${it.l.start}–${it.l.start + it.l.size - 1})"><b>L${it.l.id}</b><span>${MES[it.l.m - 1]} · ${it.l.size}</span></button>`
+      : `<button class="blk comp ${S.ui.lote === it.c.id ? 'sel' : ''}" data-lote="${it.c.id}" title="Lote complementar · ${fmtDate(it.c.date)} · ${it.c.calls.length} substituto(s)"><b>C</b><span>${MES[it.c.date % 12]} · ${it.c.calls.length}</span></button>`).join('') || '<span class="note">sem lotes</span>'}</div></div>`;
+  });
+  t += `</div>`;
+  $('#tlcard').innerHTML = t;
+}
+
+// ---------- tabela ----------
+function buildGroups(res) {
+  const { cur } = res;
+  const groups = [];
+  const refusalsBy = {};
+  if (res.kind === 'tec') res.people.forEach((p, i) => { const r = cur.rec[i]; if (r && r.type === 'refuse') (refusalsBy[r.lote] = refusalsBy[r.lote] || []).push(i); });
+  const withRefusals = (key, calls) => {
+    const rows = calls.map(c => ({ kind: c.ph ? 'ph' : 'call', c, i: c.i, slot: c.slot }));
+    (refusalsBy[key] || []).forEach(i => rows.push({ kind: 'refuse', i, slot: cur.rec[i].atSlot - 0.5 }));
+    if (String(key)[0] !== 'C') rows.sort((a, b) => a.slot - b.slot);
+    return rows;
+  };
+  const items = res.lotes.map(l => ({ date: l.date, reg: true, l })).concat(Object.values(cur.compLotes).map(c => ({ date: c.date, reg: false, c })))
+    .sort((a, b) => a.date - b.date || (a.reg ? 1 : -1));
+  items.forEach(it => {
+    if (it.reg) groups.push({ key: it.l.id, kind: 'reg', l: it.l, rows: withRefusals(it.l.id, cur.calls.filter(c => c.lote === it.l.id)) });
+    else groups.push({ key: it.c.id, kind: 'comp', c: it.c, rows: withRefusals(it.c.id, it.c.calls) });
+  });
+  const tail = [];
+  res.people.forEach((p, i) => { const r = cur.rec[i]; if (r && r.tail) tail.push(r.type === 'refuse' ? { kind: 'refuse', i, slot: r.atSlot - 0.5 } : { kind: 'call', i, slot: r.slot }); });
+  tail.sort((a, b) => a.slot - b.slot);
+  groups.push({ key: 'T', kind: 'tail', rows: tail });
+  return groups;
+}
+function rowMatches(res, row) {
+  const ui = S.ui, isAJ = res.kind === 'aj';
+  if (row.kind === 'ph') return !ui.q && !ui.show && (!ui.lista || row.c.via === ui.lista);
+  const p = res.people[row.i], r = res.cur.rec[row.i];
+  if (ui.q) { const q = norm(ui.q).trim(); if (q && !p.key.includes(q)) return false; }
+  if (ui.lista && (r ? r.via : null) !== ui.lista) return false;
+  switch (ui.show) {
+    case 'td': return res.td.has(row.i);
+    case 'proj': return isAJ && p.proj;
+    case 'edit': return isAJ && !!S.aj.edits[row.i];
+    case 'dual': return isAJ ? p.lists.length > 1 && p.lists.includes('A') : p.aj >= 0;
+    case 'adv': { const b = res.base.rec[row.i]; return r && b && r.type === 'call' && b.type === 'call' && b.slot - r.slot > 0; }
+    case 'sub': return r && r.comp;
+    case 'refuse': return row.kind === 'refuse';
+    case 'leave': return !isAJ && r && r.type === 'call' && p.entry != null && r.date != null && p.entry > r.date && !res.td.has(row.i);
+  }
+  return true;
+}
+function advHtml(res, i) {
+  const r = res.cur.rec[i], b = res.base.rec[i];
+  let h = '';
+  if (r && b && r.type === 'call' && b.type === 'call') {
+    const d = b.slot - r.slot;
+    if (d > 0) h += `<span class="adv up" title="Avança ${d} posições por causa de desistências (TD)">▲${d}</span>`;
+    else if (d < 0) h += `<span class="adv dn" title="Recua ${-d} posições">▼${-d}</span>`;
+  }
+  if (res.kind === 'aj' && b && b.type === 'call') {
+    const o = ORIG_AJ[i], d2 = o - b.slot;
+    if (d2) h += `<span class="adv t" title="Efeito das edições de títulos: era a ${o}ª">tít ${d2 > 0 ? '▲' : '▼'}${Math.abs(d2)}</span>`;
+  }
+  return h;
+}
+function metaAJ(res, i) {
+  const p = res.people[i], r = res.cur.rec[i]; const bits = [];
+  if (!r) return '';
+  if (r.comp && r.replaces != null) bits.push(`<span class="k">Substitui ${esc(personName(res, r.replaces))}</span> (TD) na vaga ${r.slot}`);
+  if (res.td.has(i)) {
+    const rb = r.replacedBy;
+    bits.push(rb ? (rb.i != null ? `Envia TD · vaga passa ao próximo ainda não convocado: <span class="k">${esc(personName(res, rb.i))}</span> (${LNAME[rb.via]}) em ${fmtDate(rb.date)}` : 'Envia TD') : 'Envia TD · fora do período, sem substituição');
+  }
+  const others = p.lists.filter(t => t !== r.via);
+  if (others.length) {
+    if (r.via === 'A') bits.push(`Chamado(a) primeiro pela <span class="k">AC</span> · não ocupa vaga de ${others.map(t => LNAME[t]).join('/')}: o próximo da cota é chamado`);
+    else if (p.lists.includes('A')) bits.push(`Chamado(a) primeiro pela <span class="k">${LNAME[r.via]}</span> · libera a vaga da AC para o próximo da ampla`);
+    else bits.push(`Chamado(a) pela <span class="k">${LNAME[r.via]}</span> · também na lista ${others.map(t => LNAME[t]).join('/')}`);
+  }
+  if (AJ2TEC[i] != null) bits.push(`Também aprovado(a) em Técnico (${TEC0[AJ2TEC[i]].pdf}ª no PDF)`);
+  return bits.length ? `<div class="meta">${bits.join(' · ')}</div>` : '';
+}
+function metaTEC(res, i, row) {
+  const p = res.people[i], r = res.cur.rec[i]; const bits = [];
+  const ms = +S.tec.P.mesesSaida || 0;
+  if (row.kind === 'refuse') bits.push(`Já convocado(a) em AJAJ (${fmtDate(p.ajDate)}) quando chega a vez · <span class="k">recusa</span>, a vaga passa ao próximo da lista`);
+  else {
+    if (r.comp && r.replaces != null) bits.push(`<span class="k">Substitui ${esc(personName(res, r.replaces))}</span> (TD)`);
+    const ref = res.people.find((q, j) => { const rr = res.cur.rec[j]; return rr && rr.type === 'refuse' && rr.atSlot === r.slot && rr.lote === r.lote; });
+    if (ref) bits.push(`Entra na vaga de ${esc(ref.name)}, que recusou`);
+    if (res.td.has(i)) { const rb = r.replacedBy; bits.push(rb ? `Envia TD · vaga passa a <span class="k">${rb.i != null ? esc(personName(res, rb.i)) : 'próximo(a) da lista'}</span> em ${fmtDate(rb.date)}` : 'Envia TD'); }
+    else if (p.aj >= 0) {
+      if (p.ajTd) bits.push(`Aprovado(a) em AJAJ (${p.ajSlot}ª), mas marcado(a) com TD lá · fica no técnico`);
+      else if (p.entry != null && r.date != null && p.entry > r.date) bits.push(`AJAJ ${p.ajSlot}ª · ${p.adia ? `adia AJAJ, sai ${fmtDate(p.entry)}` : `convocado(a) em AJAJ ${fmtDate(p.ajDate)}`} → <span class="k">vaga de técnico reabre ${fmtDate(p.entry + ms)}</span>`);
+      else if (p.entry == null) bits.push(`Também aprovado(a) em AJAJ (${p.ajSlot ? p.ajSlot + 'ª' : '—'}), sem convocação lá ${S.tec.P.corte ? 'dentro do corte' : 'no período'}`);
+    }
+  }
+  return bits.length ? `<div class="meta">${bits.join(' · ')}</div>` : '';
+}
+function rowHtml(res, row, g) {
+  const isAJ = res.kind === 'aj';
+  const hue = g.kind === 'reg' ? loteHue(g.l, res.lotes) : 0;
+  const gcls = g.kind === 'comp' ? 'comp' : g.kind === 'tail' ? 'tail' : '';
+  if (row.kind === 'ph') {
+    return `<tr class="p ph ${gcls}" style="--h:${hue}"><td class="pos">${row.c.slot}${row.c.comp ? '<small>vaga</small>' : ''}</td><td></td><td colspan="${isAJ ? 6 : 7}">Próximo(a) da lista ${LLONG[row.c.ph]} (nº ${row.c.k} além do PDF)${row.c.comp ? ` · substitui ${esc(personName(res, row.c.replaces))} (TD)` : ''}</td><td><span class="badge">${LNAME[row.c.ph]}</span></td><td>${lchip(res, row.c, g, hue)}</td><td class="mono">${fmtDate(row.c.date)}</td><td></td></tr>`;
+  }
+  const i = row.i, p = res.people[i], r = res.cur.rec[i];
+  const td = res.td.has(i);
+  const cls = ['p', gcls, row.kind === 'refuse' ? 'refuse' : '', td ? 'istd' : ''].join(' ');
+  const pos = row.kind === 'refuse' ? '—' : r.slot + (r.comp ? '<small>vaga</small>' : '');
+  const tdBtn = row.kind === 'refuse' ? '' : `<button class="tdbtn ${td ? 'on' : ''}" data-td="${i}" aria-pressed="${td}" title="${td ? 'Remover TD' : 'Marcar: esta pessoa vai enviar TD (desistir)'}">TD</button>`;
+  const tags = (td ? '<span class="tag td">TD</span>' : '') + (r && r.comp ? '<span class="tag sub">COMPLEMENTAR</span>' : '') + (row.kind === 'refuse' ? '<span class="tag ref">RECUSA</span>' : '');
+  if (isAJ) {
+    const ed = S.aj.edits[i] && S.aj.edits[i].tit != null;
+    return `<tr class="${cls}" style="--h:${hue}" data-i="${i}" tabindex="0">
+      <td class="pos">${pos}</td><td>${advHtml(res, i)}</td>
+      <td><span class="name ${p.proj ? 'proj' : ''}">${esc(p.name)}</span>${tags}${ed ? '<span class="tag ed">TÍTULO EDITADO</span>' : ''}${metaAJ(res, i)}</td>
+      <td><span class="badge">${LNAME[r.via]}</span>${p.lists.filter(t => t !== r.via).map(t => `<span class="badge ghost">${LNAME[t]}</span>`).join('')}</td>
+      <td class="r num">${res.ranks[r.via].get(i)}º</td><td class="r num">${f2(p.pre)}</td><td class="r num tit ${ed ? 'edited' : ''}">${f2(p.tit)}</td><td class="r num"><b>${f2(p.tot)}</b></td>
+      <td>${lchip(res, r, g, hue)}</td><td class="mono">${r.date != null ? fmtDate(r.date) : '—'}</td><td>${tdBtn}</td></tr>`;
+  }
+  const via = r ? r.via : p.list;
+  const adiant = row.kind === 'refuse' ? '' : (p.pdf - r.slot);
+  return `<tr class="${cls}" style="--h:${hue}" data-i="${i}" tabindex="0">
+    <td class="pos">${pos}</td><td>${row.kind === 'refuse' ? '' : advHtml(res, i)}</td>
+    <td><span class="name">${esc(p.name)}</span>${tags}${p.aj >= 0 && row.kind !== 'refuse' && p.entry != null && r.date != null && p.entry > r.date && !td ? '<span class="tag out">SAI P/ AJAJ</span>' : ''}${metaTEC(res, i, row)}</td>
+    <td><span class="badge">${LNAME[via]}</span></td><td class="r num">${p.cls}º</td><td class="r num">${p.pdf}ª</td>
+    <td class="r num">${adiant === '' ? '' : adiant > 0 ? `<span style="color:var(--green)">+${adiant}</span>` : adiant}</td>
+    <td class="r num">${f2(p.tot)}</td><td class="r num">${p.aj >= 0 ? (p.ajSlot ? p.ajSlot + 'ª' : '✓') : ''}</td>
+    <td>${lchip(res, row.kind === 'refuse' ? r : r, g, hue)}</td><td class="mono">${r && r.date != null && isFinite(r.date) ? fmtDate(r.date) : '—'}</td><td>${tdBtn}</td></tr>`;
+}
+function lchip(res, r, g, hue) {
+  if (g.kind === 'comp') return `<span class="lchip comp">C·${MES[g.c.date % 12]}</span>`;
+  if (g.kind === 'tail') return `<span class="lchip tail">após</span>`;
+  return `<span class="lchip" style="--h:${hue}">L${g.l.id}</span>`;
+}
+function renderTable() {
+  const res = R(), isAJ = res.kind === 'aj', ui = S.ui;
+  const showOpts = isAJ
+    ? [['', 'Todas as pessoas'], ['proj', 'Título projetado (vermelho)'], ['edit', 'Títulos editados'], ['td', 'Marcados com TD'], ['sub', 'Chamados em complementar'], ['adv', 'Que avançam por TD'], ['dual', 'Ampla + cota']]
+    : [['', 'Todas as pessoas'], ['td', 'Marcados com TD'], ['sub', 'Chamados em complementar'], ['adv', 'Que avançam por TD'], ['dual', 'Aprovados também em AJAJ'], ['leave', 'Assumem e saem p/ AJAJ'], ['refuse', 'Recusam (já em AJAJ)']];
+  const loteChip = ui.lote != null ? `<span class="chip">Filtrando: ${String(ui.lote)[0] === 'C' ? 'complementar ' + fmtDate(+String(ui.lote).slice(1)) : 'lote ' + ui.lote}<button data-act="clearLote" aria-label="Remover filtro de lote">×</button></span>` : '';
+  const tb = $('#tbar');
+  if (!tb.dataset.cargo || tb.dataset.cargo !== S.cargo) {
+    tb.dataset.cargo = S.cargo;
+    tb.innerHTML = `<input type="search" id="q" placeholder="Buscar nome ou inscrição" value="${esc(ui.q)}" aria-label="Buscar">
+      <select id="lista" aria-label="Lista">${[['', 'Todas as listas']].concat(LT.map(t => [t, LNAME[t] + ' · ' + LLONG[t]])).map(o => `<option value="${o[0]}" ${o[0] === ui.lista ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+      <select id="show" aria-label="Mostrar">${showOpts.map(o => `<option value="${o[0]}" ${o[0] === ui.show ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+      <span id="lotechip"></span><span class="count" id="count"></span>`;
+  }
+  $('#lotechip').innerHTML = loteChip;
+  const groups = buildGroups(res);
+  const filtering = !!(ui.q || ui.lista || ui.show);
+  let body = '', shown = 0;
+  groups.forEach(g => {
+    if (ui.lote != null && g.key !== ui.lote) return;
+    const rows = g.rows.filter(row => rowMatches(res, row));
+    if (!rows.length && (filtering || g.kind === 'tail')) return;
+    let head;
+    if (g.kind === 'reg') {
+      const by = { A: 0, N: 0, P: 0, I: 0, Q: 0 }; g.rows.forEach(rw => { if (rw.kind !== 'refuse') by[rw.kind === 'ph' ? rw.c.via : res.cur.rec[rw.i].via]++; });
+      const nref = g.rows.filter(rw => rw.kind === 'refuse').length;
+      head = `<b>Lote ${g.l.id}</b><span class="gm">${g.l.k}º de ${g.l.y} · ${fmtDate(g.l.date)} · ${g.l.size} pessoas · posições ${g.l.start}–${g.l.start + g.l.size - 1} · ${LT.filter(t => by[t]).map(t => LNAME[t] + ' ' + by[t]).join(' · ')}${nref ? ` · ${nref} recusa${nref > 1 ? 's' : ''}` : ''}</span>`;
+    } else if (g.kind === 'comp') {
+      head = `<b>Lote complementar · ${fmtDate(g.c.date)}</b><span class="gm">${g.c.calls.length} substituto${g.c.calls.length > 1 ? 's' : ''} de quem enviou TD · cada um vem da mesma lista (ampla ou cota) pela qual o desistente foi chamado</span>`;
+    } else {
+      head = `<b>Após o período</b><span class="gm">${g.rows.length} pessoas ainda não alcançadas até ${res.totals[res.totals.length - 1].y}</span><button class="btn sm" data-act="tail">${ui.tail || filtering ? 'Ocultar' : 'Mostrar'}</button>`;
+    }
+    const hue = g.kind === 'reg' ? loteHue(g.l, res.lotes) : 0;
+    body += `<tr class="g ${g.kind === 'comp' ? 'comp' : g.kind === 'tail' ? 'tail' : ''}" style="--h:${hue}"><td colspan="${isAJ ? 11 : 12}">${head}</td></tr>`;
+    if (g.kind === 'tail' && !ui.tail && !filtering && ui.lote == null) return;
+    rows.forEach(row => { body += rowHtml(res, row, g); shown += row.kind === 'ph' ? 0 : 1; });
+  });
+  const head = isAJ
+    ? `<tr><th>Pos.</th><th>Δ</th><th>Nome</th><th>Vaga</th><th class="r">Classif.</th><th class="r">Prova</th><th class="r">Títulos</th><th class="r">Total</th><th>Lote</th><th>Data (≈)</th><th>TD</th></tr>`
+    : `<tr><th>Pos.</th><th>Δ</th><th>Nome</th><th>Lista</th><th class="r">Classif.</th><th class="r">PDF</th><th class="r">Adiantou</th><th class="r">Nota</th><th class="r">AJAJ</th><th>Lote</th><th>Data (≈)</th><th>TD</th></tr>`;
+  const wrap = $('#tblwrap');
+  wrap.innerHTML = `<table class="ord"><thead>${head}</thead><tbody>${body || `<tr><td colspan="12" class="empty">Ninguém encontrado com esses filtros.</td></tr>`}</tbody></table>`;
+  $('#count').textContent = `${shown} pessoa${shown === 1 ? '' : 's'} na lista`;
+}
+
+// ---------- gaveta ----------
+let drawerI = null;
+function openDrawer(i) { drawerI = i; renderDrawer(); $('#drawer').hidden = false; }
+function closeDrawer() { drawerI = null; $('#drawer').hidden = true; }
+function hypoTD(res, i) {
+  const td = new Set(res.td); td.add(i);
+  let s;
+  if (res.kind === 'aj') s = simulate({ ...res.opt, td });
+  else s = simulate({ n: res.people.length, lists: res.lists, lotes: res.lotes, PAT: D.pat, td, delay: res.delay, refuse: res.refuse, placeholders: true });
+  const rb = s.rec[i] && s.rec[i].replacedBy;
+  let gained = 0, moved = 0; res.people.forEach((p, j) => { const a = res.cur.rec[j], b = s.rec[j]; if (j !== i && a && b && a.type === 'call' && b.type === 'call' && a.slot > b.slot) { gained++; if (b.date != null && a.lote !== b.lote) moved++; } });
+  return { rb, gained, moved };
+}
+function renderDrawer() {
+  if (drawerI == null) return;
+  const res = R(), i = drawerI, p = res.people[i], r = res.cur.rec[i], b = res.base.rec[i];
+  const isAJ = res.kind === 'aj', td = res.td.has(i);
+  let h = `<div class="dhead"><div><div class="eyebrow">${isAJ ? 'Analista Judiciário · AJAJ' : 'Técnico Judiciário · I09'} · inscrição ${esc(p.insc)}</div>
+    <h2 class="${isAJ && p.proj ? 'proj' : ''}">${esc(p.name)}</h2>
+    <div>${(isAJ ? p.lists : [p.list]).map(t => `<span class="badge ${r && r.via === t ? '' : 'ghost'}" title="${LLONG[t]}">${LNAME[t]}</span>`).join(' ')}</div></div>
+    <button class="btn" data-act="close" aria-label="Fechar">Fechar</button></div>`;
+  const loteTxt = r ? (r.lote === 'T' ? 'Após o período' : String(r.lote)[0] === 'C' ? 'Complementar' : 'Lote ' + r.lote) : '—';
+  h += `<div class="dgrid"><div><div class="k">Posição</div><div class="v">${r && r.type === 'call' ? r.slot + 'ª' : '—'}</div></div>
+    <div><div class="k">${loteTxt}</div><div class="v">${r && r.date != null && isFinite(r.date) ? fmtDate(r.date) : '—'}</div></div>
+    <div><div class="k">Vaga</div><div class="v">${r ? LNAME[r.via] : '—'} ${isAJ && r ? res.ranks[r.via].get(i) + 'º' : !isAJ ? p.cls + 'º' : ''}</div></div></div>`;
+  // avanço
+  const adv = [];
+  if (r && b && r.type === 'call' && b.type === 'call' && b.slot !== r.slot) adv.push(`Por causa dos TDs marcados, ${b.slot > r.slot ? `<b>avança ${b.slot - r.slot} posições</b>` : `recua ${r.slot - b.slot}`} (sem TDs seria a ${b.slot}ª${b.date != null ? `, ${fmtDate(b.date)}` : ''}).`);
+  if (isAJ && b && ORIG_AJ[i] !== b.slot) adv.push(`Com os títulos editados, ${ORIG_AJ[i] > b.slot ? 'sobe' : 'desce'} ${Math.abs(ORIG_AJ[i] - b.slot)} posições (na planilha era a ${ORIG_AJ[i]}ª).`);
+  if (!isAJ && r && r.type === 'call') { const a = p.pdf - r.slot; if (a) adv.push(`Na ordem efetiva ${a > 0 ? 'adianta' : 'atrasa'} ${Math.abs(a)} posições em relação ao PDF (${p.pdf}ª) por causa de recusas de quem já está em AJAJ.`); }
+  if (r && r.comp) adv.push(`Chamado(a) no lote complementar de ${fmtDate(r.date)} no lugar de <b>${esc(personName(res, r.replaces))}</b> (TD), ocupando a vaga ${r.slot}.`);
+  if (adv.length) h += `<div class="callout green">${adv.join('<br>')}</div>`;
+  if (r && r.type === 'refuse') h += `<div class="callout">Quando chega a vez no técnico (${fmtDate(r.date)}), já foi convocado(a) em AJAJ (${fmtDate(p.ajDate)}): recusa, e a vaga passa ao próximo da lista ${LNAME[r.via]} sem contar posição.</div>`;
+
+  // TD
+  if (r && r.type === 'call') {
+    h += `<div class="dsec"><h3>Termo de desistência</h3><button class="tdbig ${td ? 'on' : ''}" data-td="${i}" aria-pressed="${td}"><span class="box">${td ? '✓' : ''}</span><span><b>${td ? 'Vai enviar TD' : 'Marcar que vai enviar TD'}</b><br><small>Desiste da vaga; o próximo da lista ${LNAME[r.via]} <b>ainda não convocado</b> entra num lote complementar ~${S[S.cargo].P.delay} mês(es) depois.</small></span></button>`;
+    if (r.tail) h += `<p class="note">Esta pessoa só seria chamada depois de ${res.totals[res.totals.length - 1].y}; um TD dela não muda a convocação dentro do período.</p>`;
+    else {
+      const hy = td ? { rb: r.replacedBy, gained: null } : hypoTD(res, i);
+      const rb = hy.rb;
+      const Lr = typeof r.lote === 'number' ? loteById(res, r.lote) : null;
+      const why = (Lr && rb && rb.i != null && res.base.rec[rb.i] && res.base.rec[rb.i].slot > Lr.start + Lr.size - 1)
+        ? ` Quem vem logo depois na ${LNAME[r.via]} até a ${Lr.start + Lr.size - 1}ª posição já foi chamado(a) no mesmo lote ${Lr.id} (${fmtDate(Lr.date)}); por isso a vaga vai para o próximo da ${LNAME[r.via]} que ainda não tinha sido convocado(a).` : '';
+      if (rb) h += `<div class="callout amber">${td ? 'Com o TD' : 'Se enviar TD'}, entra em ${fmtDate(rb.date)} (lote complementar): <b>${rb.i != null ? esc(personName(res, rb.i)) : 'próximo(a) da lista além do PDF'}</b>, da lista ${LNAME[rb.via]}${rb.i != null && res.base.rec[rb.i] ? `, que antes seria chamado(a) na ${res.base.rec[rb.i].slot}ª posição${res.base.rec[rb.i].date != null ? ` (${fmtDate(res.base.rec[rb.i].date)})` : ''}` : ''}.${hy.gained != null ? ` No total, ${hy.gained} pessoas avançariam na ordem; ${hy.moved} delas mudariam de lote dentro do período.` : ''}${why}</div>`;
+    }
+    const prev = r.comp ? null : prevSameType(r.slot, r.slotType || r.via);
+    if (prev) h += `<p class="note">Cada pessoa da lista ${LNAME[r.slotType || r.via]} à sua frente que desistir antes da sua vez faz você avançar cerca de <b>${r.slot - prev} posiç${r.slot - prev === 1 ? 'ão' : 'ões'}</b> (a vaga anterior desse tipo é a ${prev}ª).</p>`;
+    h += `</div>`;
+  }
+  if (isAJ) {
+    const e = S.aj.edits[i] || {};
+    h += `<div class="dsec"><h3>Títulos</h3>
+      <p>Prova <b class="mono">${f2(p.pre)}</b> + títulos <b class="mono">${f2(p.tit)}</b> = <b class="mono">${f2(p.tot)}</b>${p.tit !== p.tit0 ? ` <span class="note">(original ${f2(p.tit0)})</span>` : ''}</p>
+      <div class="titrow"><input type="number" id="dtit" step="0.25" min="0" max="10" value="${p.tit}" aria-label="Pontos de títulos"><button class="btn primary" data-act="saveTit">Atualizar</button><button class="btn warn" data-act="zeroTit">Excluir título</button>${S.aj.edits[i] ? `<button class="btn" data-act="restoreTit">Restaurar original</button>` : ''}</div>
+      <label class="ck"><input type="checkbox" id="dproj" ${p.proj ? 'checked' : ''}> Título ainda é projeção (nome em vermelho)</label>
+      <p class="note">${p.proj0 ? 'Na planilha, o título desta pessoa foi projetado por sorteio (não respondeu ao formulário).' : 'Na planilha, esta pessoa informou o título.'} Ao atualizar ou excluir, o título passa a contar como confirmado e a ordem é refeita.</p></div>`;
+    const others = p.lists.filter(t => r && t !== r.via);
+    if (r && r.type === 'call' && others.length) {
+      const alt = simulate({ ...res.opt, td: res.td, exclude: { [i]: r.via } });
+      const ar = alt.rec[i];
+      h += `<div class="dsec"><h3>Ampla × cota</h3><p>Está nas listas ${p.lists.map(t => LNAME[t]).join(' e ')}. A vez chega primeiro pela <b>${LNAME[r.via]}</b> (${r.slot}ª posição).${ar && ar.type === 'call' ? ` Pela ${LNAME[ar.via]}, seria a ${ar.slot}ª${ar.date != null ? ` (${fmtDate(ar.date)})` : ' (após o período)'}.` : ''}</p>
+        <p class="note">${r.via === 'A' ? `Como entra pela ampla, não gasta vaga de ${others.map(t => LNAME[t]).join('/')}: a cota chama o próximo cotista.` : 'Como entra pela cota, não gasta vaga da ampla: a ampla chama o próximo da lista.'}</p></div>`;
+    }
+    if (AJ2TEC[i] != null) {
+      const t = TC.people[AJ2TEC[i]], tr = TC.cur.rec[AJ2TEC[i]];
+      h += `<div class="dsec"><h3>Também em Técnico</h3><p>${t.pdf}ª no PDF de técnico (${LNAME[t.list]} ${t.cls}º). ${tr ? (tr.type === 'refuse' ? `Recusa o técnico em ${fmtDate(tr.date)} porque já foi chamado(a) aqui.` : tr.date != null && isFinite(tr.date) ? `Chamado(a) no técnico em ${fmtDate(tr.date)}${t.entry != null && t.entry > tr.date ? `, assume e sai quando vem AJAJ` : ''}.` : 'Chamado(a) no técnico só depois do período.') : ''}</p><button class="btn sm" data-act="goTec" data-j="${AJ2TEC[i]}">Ver na aba de Técnico</button></div>`;
+    }
+  } else {
+    h += `<div class="dsec"><h3>Nota</h3><p>Objetiva <b class="mono">${f2(p.obj)}</b> + discursiva <b class="mono">${f2(p.disc)}</b> = <b class="mono">${f2(p.tot)}</b> · ${LNAME[p.list]} ${p.cls}º · ${p.pdf}ª no PDF</p></div>`;
+    if (p.aj >= 0) {
+      h += `<div class="dsec"><h3>Também aprovado(a) em AJAJ</h3><p>${p.ajSlot ? p.ajSlot + 'ª' : '—'} na ordem de AJAJ${p.ajTd ? ' · marcado(a) com TD em AJAJ, então fica no técnico' : p.ajDate != null ? ` · convocação em AJAJ ≈ ${fmtDate(p.ajDate)}` : ' · sem convocação em AJAJ no período/corte'}.</p>
+        <label class="ck"><input type="checkbox" id="dadia" ${p.adia ? 'checked' : ''}> Adia a posse em AJAJ por ${S.tec.P.mesesAdia} meses (ex.: ainda na faculdade)</label>
+        ${p.entry != null ? `<p class="note">${r && r.type === 'refuse' ? 'Recusa o técnico.' : `Assume o técnico e sai em ${fmtDate(p.entry)}; a vaga reabre ≈ ${fmtDate(p.entry + (+S.tec.P.mesesSaida || 0))} e entra na conta do ano.`}</p>` : ''}
+        <button class="btn sm" data-act="goAj" data-j="${p.aj}">Ver na aba de Analista</button></div>`;
+    }
+  }
+  $('#dpanel').innerHTML = h;
+}
+
+// ---------- render geral ----------
+function renderAll(panelToo) {
+  $('#tab-aj').setAttribute('aria-selected', S.cargo === 'aj'); $('#tab-tec').setAttribute('aria-selected', S.cargo === 'tec');
+  $('#h1cargo').textContent = S.cargo === 'aj' ? 'Analista Judiciário' : 'Técnico Judiciário';
+  if (panelToo) renderPanel(); else renderOutputs();
+  renderSummary(); renderTable(); renderDrawer();
+}
+function update(panelToo) { recompute(); save(); renderAll(panelToo); }
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 2200); }
+
+function setPath(path, val) {
+  const ks = path.split('.'); let o = S;
+  for (let k = 0; k < ks.length - 1; k++) o = o[ks[k]];
+  o[ks[ks.length - 1]] = val;
+}
+
+// ---------- eventos ----------
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-cargo],[data-td],[data-act],[data-lote],tr.p[data-i]');
+  if (!t) { if (e.target.id === 'drawer') closeDrawer(); if (e.target.id === 'modal') $('#modal').hidden = true; return; }
+  if (t.dataset.cargo) { if (S.cargo !== t.dataset.cargo) { S.cargo = t.dataset.cargo; S.ui.lote = null; S.ui.show = ''; S.ui.lista = ''; closeDrawer(); save(); renderAll(true); } return; }
+  if (t.dataset.td != null) {
+    e.stopPropagation();
+    const i = +t.dataset.td, o = S[S.cargo].td;
+    if (o[i]) delete o[i]; else o[i] = 1;
+    update(true);
+    toast(o[i] ? `TD marcado: ${personName(R(), i)}` : 'TD removido');
+    return;
+  }
+  if (t.dataset.lote) { const v = t.dataset.lote[0] === 'C' ? t.dataset.lote : +t.dataset.lote; S.ui.lote = S.ui.lote === v ? null : v; save(); renderSummary(); renderTable(); return; }
+  if (t.matches('tr.p[data-i]')) { openDrawer(+t.dataset.i); return; }
+  const act = t.dataset.act, c = S.cargo, P = S[c].P;
+  switch (act) {
+    case 'close': closeDrawer(); break;
+    case 'ptoggle': $('#panel').classList.toggle('collapsed'); break;
+    case 'clearLote': S.ui.lote = null; save(); renderSummary(); renderTable(); break;
+    case 'tail': S.ui.tail = !S.ui.tail; save(); renderTable(); break;
+    case 'lotesN': {
+      const yi = +t.dataset.yi, Y = P.years[yi], n = Math.max(1, Math.min(12, Y.lotes.length + +t.dataset.d));
+      if (n === Y.lotes.length) break;
+      const tot = R().totals[yi].used, ms = spreadMonths(n), sz = Math.floor(tot / n);
+      Y.lotes = ms.map(m => ({ m, s: sz }));
+      update(true); break;
+    }
+    case 'addYear': {
+      const L = P.years[P.years.length - 1];
+      const Y = JSON.parse(JSON.stringify(L)); Y.y = L.y + 1; Y.manual = null;
+      P.years.push(Y); update(true); break;
+    }
+    case 'rmYear': if (P.years.length > 1) { P.years.pop(); update(true); } break;
+    case 'clearTd': S[c].td = {}; update(true); toast('TDs removidos'); break;
+    case 'clearEdits': S.aj.edits = {}; update(true); toast('Títulos voltaram aos valores da planilha'); break;
+    case 'saveTit': case 'zeroTit': {
+      const v = act === 'zeroTit' ? 0 : Math.max(0, +$('#dtit').value || 0);
+      S.aj.edits[drawerI] = { tit: r2(v), proj: 0 };
+      update(true); toast(act === 'zeroTit' ? 'Título excluído; ordem refeita' : 'Título atualizado; ordem refeita'); break;
+    }
+    case 'restoreTit': delete S.aj.edits[drawerI]; update(true); break;
+    case 'goTec': S.cargo = 'tec'; S.ui.lote = null; S.ui.show = ''; S.ui.lista = ''; save(); renderAll(true); openDrawer(+t.dataset.j); break;
+    case 'goAj': S.cargo = 'aj'; S.ui.lote = null; S.ui.show = ''; S.ui.lista = ''; save(); renderAll(true); openDrawer(+t.dataset.j); break;
+    case 'resetYes': S = defaults(); closeDrawer(); $('#modal').hidden = true; update(true); toast('Cenário padrão restaurado'); break;
+    case 'mclose': $('#modal').hidden = true; break;
+    case 'copy': {
+      const ta = $('#mtext'); const txt = ta.value;
+      const done = () => toast('Copiado');
+      try { navigator.clipboard.writeText(txt).then(done, () => { ta.select(); toast('Selecionado: use Ctrl+C'); }); } catch (err) { ta.select(); toast('Selecionado: use Ctrl+C'); }
+      break;
+    }
+    case 'doImport': {
+      try { applyState(JSON.parse($('#mtext').value)); $('#modal').hidden = true; closeDrawer(); update(true); toast('Cenário importado'); }
+      catch (err) { $('#merr').textContent = 'Não consegui ler esse texto. Cole o JSON exportado por esta página.'; }
+      break;
+    }
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDrawer(); $('#modal').hidden = true; }
+  if (e.key === 'Enter' && e.target.matches('tr.p[data-i]')) openDrawer(+e.target.dataset.i);
+  if (e.key === 'Enter' && e.target.id === 'dtit') { e.preventDefault(); $('[data-act="saveTit"]').click(); }
+});
+$('#panel').addEventListener('change', e => {
+  const el = e.target; if (!el.dataset.path) return;
+  let v = el.value;
+  if (el.type === 'number') v = v === '' ? null : +v;
+  else if (el.tagName === 'SELECT' && /\.m$/.test(el.dataset.path)) v = +v;
+  setPath(el.dataset.path, v);
+  update(!!el.dataset.struct || el.tagName === 'SELECT');
+});
+let qT;
+document.addEventListener('input', e => {
+  if (e.target.id === 'q') { clearTimeout(qT); qT = setTimeout(() => { S.ui.q = e.target.value; save(); renderTable(); }, 180); }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'lista') { S.ui.lista = e.target.value; save(); renderTable(); }
+  if (e.target.id === 'show') { S.ui.show = e.target.value; save(); renderTable(); }
+  if (e.target.id === 'dproj') { const i = drawerI; const p = AJ.people[i]; S.aj.edits[i] = Object.assign({}, S.aj.edits[i] || {}, { proj: e.target.checked ? 1 : 0 }); if (S.aj.edits[i].tit == null && S.aj.edits[i].proj === AJ0[i].proj0) delete S.aj.edits[i]; update(true); }
+  if (e.target.id === 'dadia') { S.tec.adia[drawerI] = e.target.checked ? 1 : 0; update(true); }
+});
+$('#btnExport').addEventListener('click', () => {
+  $('#mbox').innerHTML = `<h2 style="margin:0;font:720 18px var(--f-display)">Exportar cenário</h2><p class="note">Copie o texto e guarde. Para voltar a este cenário (em outro aparelho, por exemplo), use “Importar”.</p><textarea id="mtext" readonly>${esc(JSON.stringify(S))}</textarea><div class="actions"><button class="btn primary" data-act="copy">Copiar</button><button class="btn" data-act="mclose">Fechar</button></div>`;
+  $('#modal').hidden = false;
+});
+$('#btnImport').addEventListener('click', () => {
+  $('#mbox').innerHTML = `<h2 style="margin:0;font:720 18px var(--f-display)">Importar cenário</h2><p class="note">Cole o texto exportado ou escolha o arquivo .json.</p><input type="file" id="mfile" accept=".json,application/json,text/plain"><textarea id="mtext" placeholder="{ ... }"></textarea><div class="warnline" id="merr"></div><div class="actions"><button class="btn primary" data-act="doImport">Aplicar</button><button class="btn" data-act="mclose">Cancelar</button></div>`;
+  $('#modal').hidden = false;
+  $('#mfile').addEventListener('change', ev => { const f = ev.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { $('#mtext').value = rd.result; }; rd.readAsText(f); });
+});
+$('#btnReset').addEventListener('click', () => {
+  $('#mbox').innerHTML = `<h2 style="margin:0;font:720 18px var(--f-display)">Restaurar o padrão?</h2><p>Volta às premissas e lotes das planilhas e apaga TDs, edições de títulos e marcações de adiamento, nos dois cargos.</p><div class="actions"><button class="btn warn" data-act="resetYes">Restaurar</button><button class="btn" data-act="mclose">Cancelar</button></div>`;
+  $('#modal').hidden = false;
+});
+
+// ---------- início ----------
+load();
+recompute();
+if (window.matchMedia('(min-width: 1001px)').matches) $('#panel').classList.remove('collapsed');
+renderAll(true);
+})();
+
+</script>
+
+</body>
+</html>
