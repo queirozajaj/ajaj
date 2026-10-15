@@ -756,7 +756,6 @@ td .ct.dev{font-size:11.5px}
 .tag.ajd{font-weight:700}
 .cotl{font-size:11px}
 /* celular: marcações ficam na ficha (toque no nome) */
-.cards .mcard .acts{display:none}
 .cards .mcard{grid-template-columns:36px minmax(0,1fr)}
 .cards .mcard .ms{grid-column:2/3}
 /* painel: explicações recolhidas */
@@ -1043,6 +1042,45 @@ tr.g .gc{font-family:var(--f-body)}
 tr.p.st-exo td,.mcard.st-exo{background:var(--row-exo)}
 tr.p.st-hi td,.mcard.st-hi{background:var(--row-hi)}
 @media (hover:hover){tr.p.st-exo:hover td{background:color-mix(in oklab,var(--row-exo) 88%,var(--fg))}tr.p.st-hi:hover td{background:color-mix(in oklab,var(--row-hi) 88%,var(--fg))}}
+
+/* celular: cartão com barra de ações grande e fácil de tocar */
+@media (max-width:720px){
+  .cards .mcard{grid-template-columns:34px minmax(0,1fr);gap:4px 8px;padding:14px 14px 12px 16px}
+  .cards .mcard .pos{font:700 17px/1.2 var(--f-display);grid-row:1/2}
+  .cards .mcard .mt{grid-column:2/3}
+  .cards .mcard .ms{grid-column:2/3;order:3;margin-top:2px}
+  .cards .mcard .acts{display:grid!important;order:4;grid-column:1/-1;grid-row:auto;justify-self:stretch;grid-template-columns:repeat(auto-fit,minmax(62px,1fr));gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);text-align:center;white-space:normal}
+  .cards .mcard .acts:empty{display:none!important}
+  .cards .mcard .ab{opacity:1!important;margin:0!important;height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);font:650 13px/1 var(--f-body);letter-spacing:0;padding:0 6px;box-shadow:0 1px 2px rgba(25,25,70,.06);display:flex;align-items:center;justify-content:center;gap:4px}
+  .cards .mcard .ab:active{transform:scale(.96)}
+  .cards .mcard .ab.on::before{content:'✓';font-size:12px;font-weight:800}
+  .cards .mcard .ab[data-mark="ff"]{font-size:0}
+  .cards .mcard .ab[data-mark="ff"]::after{content:'Fim da fila';font-size:13px}
+  .cards .mcard .ab[data-mark="po"].on{background:var(--po);border-color:var(--po);color:#fff}
+  .cards .mcard .ab.tdb.on{background:var(--red);border-color:var(--red);color:#fff}
+  .cards .mcard .ab.ffb.on{background:var(--ff);border-color:var(--ff);color:#fff}
+  .cards .mcard .ab.exb.on{background:#6b4fa3;border-color:#6b4fa3;color:#fff}
+  .cards .mcard .ab.hib.on{background:#c2416b;border-color:#c2416b;color:#fff}
+  .cards .mcard.st-exo,.cards .mcard.st-hi,.cards .mcard.st-td,.cards .mcard.st-ff,.cards .mcard.st-po{border-radius:0}
+  /* menu do TD vira uma folha que sobe de baixo */
+  #tdpop{position:fixed!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;width:auto!important;max-width:none!important;border-radius:22px 22px 0 0!important;padding:18px 16px calc(env(safe-area-inset-bottom,0px) + 18px)!important;box-shadow:0 -12px 40px rgba(20,20,50,.25)!important;z-index:70}
+  #tdpop button{padding:14px 14px!important;border-radius:14px!important;font-size:15px}
+}
+@media (max-width:720px) and (prefers-reduced-motion:no-preference){#tdpop:not([hidden]){animation:sheetup .22s cubic-bezier(.2,.8,.2,1)}}
+@keyframes sheetup{from{transform:translateY(40px);opacity:.4}}
+.tdpop .tpx{display:none}
+@media (max-width:720px){.tdpop .tpx{display:block;text-align:center!important;border:1px solid var(--line)!important;margin-top:4px}}
+
+/* tamanho dos lotes: automático x fixo */
+.lrow{grid-template-columns:10px 26px minmax(0,1fr) 92px 28px}
+.lsz{position:relative;display:block}
+.lsz input{width:100%;padding-right:42px!important}
+.lsz.isfix input{padding-right:30px!important}
+@media (max-width:720px){.lrow{grid-template-columns:10px 26px minmax(0,1fr) 104px 30px}}
+.lsz.isauto input{color:var(--muted);font-style:italic;background:transparent;border-style:dashed}
+.lsz i{position:absolute;right:7px;font-size:9px!important;top:50%;transform:translateY(-50%);font:600 10px var(--f-body);color:var(--faint);pointer-events:none;font-style:normal;text-transform:uppercase;letter-spacing:.06em}
+.lsz .unfx{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--accent);cursor:pointer;font-size:14px;padding:2px 5px;border-radius:6px}
+.lsz .unfx:hover{background:var(--accent-soft)}
 </style>
 
 <script>(function(){var th='light';try{var s=JSON.parse(localStorage.getItem('tjce-convocacao-v1')||'{}');if(s.ui&&s.ui.themeV===2&&s.ui.theme)th=s.ui.theme;}catch(e){}document.documentElement.setAttribute('data-theme',th);})();</script>
@@ -1174,20 +1212,29 @@ function tecYears(P, reab) {
 
 // ---- lotes a partir da configuração ----
 function buildLotes(yearsCfg, totals) {
+  // Lotes publicados (pub) e lotes com tamanho digitado (fx) ficam fixos. Os demais dividem o que falta do total
+  // do ano na proporção dos tamanhos de referência (planilha), assim o cenário de vacância muda todos os lotes.
   const lotes = []; let slot = 1, id = 1;
   yearsCfg.forEach((Y, yi) => {
-    const tot = totals[yi].used, n = Y.lotes.length;
-    let autoIdx = -1;
-    for (let k = n - 1; k >= 0; k--) if (!Y.lotes[k].pub) { autoIdx = k; break; }
-    let sumOthers = 0;
-    Y.lotes.forEach((L, k) => { if (k !== autoIdx) sumOthers += Math.max(0, Math.round(+L.s || 0)); });
-    const autoSize = autoIdx >= 0 ? Math.max(0, tot - sumOthers) : 0;
-    totals[yi].over = autoIdx >= 0 ? Math.max(0, sumOthers - tot) : 0;
-    totals[yi].lastSize = autoSize;
-    totals[yi].autoIdx = autoIdx;
+    const tot = totals[yi].used, sz = Y.lotes.map(L => Math.max(0, Math.round(+L.s || 0)));
+    const flex = []; let fixSum = 0;
+    Y.lotes.forEach((L, k) => { if (L.pub || L.fx) fixSum += sz[k]; else flex.push(k); });
+    const sizes = sz.slice(), R = Math.max(0, tot - fixSum);
+    if (flex.length) {
+      const W = flex.reduce((a, k) => a + Math.max(1, sz[k]), 0);
+      const raw = flex.map(k => R * Math.max(1, sz[k]) / W), fl = raw.map(Math.floor);
+      const left = R - fl.reduce((a, v) => a + v, 0);
+      const ord = raw.map((v, j) => [v - fl[j], j]).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      for (let q = 0; q < left; q++) fl[ord[q % ord.length][1]]++;
+      flex.forEach((k, j) => { sizes[k] = fl[j]; });
+    }
+    totals[yi].over = Math.max(0, fixSum - tot);
+    totals[yi].sizes = sizes; totals[yi].flex = flex;
+    totals[yi].autoIdx = flex.length ? flex[flex.length - 1] : -1;
+    totals[yi].lastSize = flex.length ? sizes[flex[flex.length - 1]] : 0;
     let called = 0;
     Y.lotes.forEach((L, k) => {
-      const size = k === autoIdx ? autoSize : Math.max(0, Math.round(+L.s || 0));
+      const size = sizes[k];
       called += size;
       if (size <= 0) return;
       lotes.push({ id: id++, y: Y.y, k: k + 1, m: L.m, date: Y.y * 12 + (L.m - 1), start: slot, size, yi, pub: !!L.pub, ed: L.ed || '' });
@@ -1475,10 +1522,10 @@ function defaults() {
     cargo: 'aj',
     aj: {
       P: {
-        cenario: 'Base', taxas: { Conservador: 1.5, Base: 2, Otimista: 3 }, novos: 50, criados: 70, quadro2025: 723, vacPrint: 6, delay: 1, cot: 'H', devol: 'mesmo', nac: 0, auto: true,
+        cenario: 'Base', taxas: { Conservador: 1.5, Base: 2, Otimista: 3 }, novos: 50, criados: 70, quadro2025: 723, vacPrint: 6, delay: 1, cot: 'H', devol: 'mesmo', nac: 0, auto: true, lotesVac: 2,
         years: [2027, 2028, 2029].map((y, i) => ({ y, desist: [10, 15, 20][i], novos: null, manual: null, lotes: D.ajLotes.filter(l => l[0] === y).map(l => ({ m: l[1], s: l[2] })) }))
       },
-      edits: {}, td: {}, ff: {}, hi: {}, po: {}, titMode: 'proj', def: null, hiPct: 0, hiSeed: 1
+      edits: {}, td: {}, ff: {}, hi: {}, po: {}, exo: {}, titMode: 'proj', def: null, hiPct: 0, hiSeed: 1
     },
     tec: {
       P: {
@@ -1498,7 +1545,7 @@ function applyState(o) {
   if (!o || typeof o !== 'object') return;
   S = {
     cargo: o.cargo === 'tec' ? 'tec' : 'aj',
-    aj: { P: Object.assign(d.aj.P, o.aj && o.aj.P), edits: (o.aj && o.aj.edits) || {}, td: (o.aj && o.aj.td) || {}, ff: (o.aj && o.aj.ff) || {}, hi: (o.aj && o.aj.hi) || {}, po: (o.aj && o.aj.po) || {}, titMode: (o.aj && o.aj.titMode) || 'proj', def: (o.aj && o.aj.def) || null, hiPct: (o.aj && +o.aj.hiPct) || 0, hiSeed: (o.aj && +o.aj.hiSeed) || 1, mpceTD: !!(o.aj && o.aj.mpceTD), hiOk: (o.aj && o.aj.hiOk) || {} },
+    aj: { P: Object.assign(d.aj.P, o.aj && o.aj.P), edits: (o.aj && o.aj.edits) || {}, td: (o.aj && o.aj.td) || {}, ff: (o.aj && o.aj.ff) || {}, hi: (o.aj && o.aj.hi) || {}, po: (o.aj && o.aj.po) || {}, exo: (o.aj && o.aj.exo) || {}, titMode: (o.aj && o.aj.titMode) || 'proj', def: (o.aj && o.aj.def) || null, hiPct: (o.aj && +o.aj.hiPct) || 0, hiSeed: (o.aj && +o.aj.hiSeed) || 1, mpceTD: !!(o.aj && o.aj.mpceTD), hiOk: (o.aj && o.aj.hiOk) || {} },
     tec: { P: Object.assign(d.tec.P, o.tec && o.tec.P), td: (o.tec && o.tec.td) || {}, ff: (o.tec && o.tec.ff) || {}, hi: (o.tec && o.tec.hi) || {}, po: (o.tec && o.tec.po) || {}, adia: (o.tec && o.tec.adia) || {}, exo: (o.tec && o.tec.exo) || {}, ajx: (o.tec && o.tec.ajx) || {}, hiPct: (o.tec && +o.tec.hiPct) || 0, hiSeed: (o.tec && +o.tec.hiSeed) || 1, mpceTD: !!(o.tec && o.tec.mpceTD), hiOk: (o.tec && o.tec.hiOk) || {} },
     ui: Object.assign(d.ui, o.ui || {})
   };
@@ -1669,10 +1716,30 @@ function computeAJ(st, m) {
   const listsBase = hiS.size ? ajajLists(people.map(p => ({ ...p, lists: p.lists0 }))) : lists;
   const EP = { cenario: P.cenario, taxas: pctObj(P.taxas), novos: +P.novos || 0, criados: +P.criados || 0, quadro2025: +P.quadro2025 || 0, vacPrint: +P.vacPrint || 0, years: P.years.map(Y => ({ ...Y, desist: P.auto === false ? 0 : (+Y.desist || 0) / 100, manual: allPub(Y) ? pubSum(Y) : Y.manual })) };
   const totals = ajajYears(EP, people.length);
-  const lotes = buildLotes(P.years, totals);
+  let lotes = buildLotes(P.years, totals);
+  // exoneração marcada: a pessoa toma posse e depois sai; abre um novo cargo vago, nomeado alguns lotes depois (lotes publicados não mudam)
+  const exoA = A.exo || {}, exoIds = Object.keys(exoA).filter(k => exoA[k]).map(Number);
+  let vacWhere = {};
+  if (exoIds.length) {
+    const NLa = Math.max(1, Math.round(+P.lotesVac || 2)), lotes0 = lotes, regs = lotes0.slice().sort((a, b) => a.date - b.date || a.id - b.id);
+    const sim0 = L => simulate({ n: people.length, lists, lotes: L, PAT: D.pat, delay: Math.max(0, Math.round(+P.delay || 0)), fallback: FALLBACK_AJ, td: new Set(), model: M, devol: devolOf(st), nac: nacOf(st, 'aj'), acRank: i => ranks.A.get(i) || Infinity });
+    let cur = lotes0, sig = '';
+    for (let it = 0; it < 6; it++) {
+      const ev = sim0(cur), add = {}, where = {};
+      exoIds.forEach(i => {
+        const r = ev.rec[i]; if (!r || r.type !== 'call' || r.date == null || !isFinite(r.date)) return;
+        const k = regs.findIndex(L => L.date > r.date); if (k < 0) return;
+        for (let j = k, n = 0; j < regs.length; j++) { if (regs[j].pub) continue; if (++n === NLa) { add[regs[j].id] = (add[regs[j].id] || 0) + 1; where[i] = regs[j].id; break; } }
+      });
+      let s0 = 1; cur = lotes0.map(L => { const x = add[L.id] || 0, o = { ...L, size: L.size + x, start: s0, extra: x }; s0 += o.size; return o; });
+      vacWhere = where; const s2 = JSON.stringify(add); if (s2 === sig) break; sig = s2;
+    }
+    lotes = cur;
+    totals.forEach((t, yi) => { const x = lotes.filter(L => L.yi === yi).reduce((a, L) => a + (L.extra || 0), 0); t.reab = x; t.used += x; });
+  }
   const baseOpt = { n: people.length, lists, lotes, PAT: D.pat, delay: Math.max(0, Math.round(+P.delay || 0)), fallback: FALLBACK_AJ, td: new Set(), model: M, devol: devolOf(st), nac: nacOf(st, 'aj'), acRank: i => ranks.A.get(i) || Infinity };
   const run = o => simulate({ ...baseOpt, ...o });
-  return finish({ kind: 'aj', model: M, people, lists, listsBase, ranks, totals, lotes, tdS, ffS, hiS, hiSimS, hiOkS, shS, mpS, preS, run, mode, base: run({ lists: listsBase }), baseOpt, auto: P.auto !== false });
+  return finish({ kind: 'aj', model: M, people, lists, listsBase, ranks, totals, lotes, tdS, ffS, hiS, hiSimS, hiOkS, shS, mpS, preS, run, mode, base: run({ lists: listsBase }), baseOpt, auto: P.auto !== false, vacWhere });
 }
 function computeTEC(aj, st, m) {
   st = st || S; const M = m || primM(st), DV = devolOf(st), NAC = nacOf(st, 'tec');
@@ -2529,19 +2596,20 @@ function renderPanel() {
     const t = res.totals[yi], n = Y.lotes.length;
     lh += `<div class="ycard"><div class="yhead"><b>${Y.y}</b><span class="stepper"><button data-act="lotesN" data-yi="${yi}" data-d="-1" aria-label="Menos um lote em ${Y.y}">−</button><span>${n} ${plural(n, 'lote')}</span><button data-act="lotesN" data-yi="${yi}" data-d="1" aria-label="Mais um lote em ${Y.y}">+</button></span></div>`;
     Y.lotes.forEach((L, k) => {
-      const auto = k === t.autoIdx, Lo = res.lotes.find(x => x.y === Y.y && x.k === k + 1);
+      const auto = !L.pub && !L.fx, Lo = res.lotes.find(x => x.y === Y.y && x.k === k + 1), cur = t.sizes ? t.sizes[k] : L.s;
       lh += `<div class="lrow"><span class="sw" style="--lc:${Lo ? `hsl(${loteHue(Lo, res.lotes)} 58% 50%)` : 'var(--line)'}"></span><span class="mono">${k + 1}º</span>
         <select id="f-${c}-lm-${yi}-${k}" data-path="${c}.P.years.${yi}.lotes.${k}.m" aria-label="Mês do ${k + 1}º lote de ${Y.y}">${MES.map((m, mi) => `<option value="${mi + 1}" ${mi + 1 === +L.m ? 'selected' : ''}>${m}/${Y.y}</option>`).join('')}</select>
-        ${auto ? `<span class="auto" data-out="last-${yi}" title="Calculado para fechar o total do ano">${t.lastSize} auto</span>` : `<input type="number" id="f-${c}-ls-${yi}-${k}" data-path="${c}.P.years.${yi}.lotes.${k}.s" value="${L.s}" min="0" aria-label="Pessoas no ${k + 1}º lote de ${Y.y}">`}
+        <span class="lsz ${auto ? 'isauto' : L.pub ? '' : 'isfix'}"><input type="number" id="f-${c}-ls-${yi}-${k}" data-path="${c}.P.years.${yi}.lotes.${k}.s" data-out="ls-${yi}-${k}" value="${auto ? cur : L.s}" min="0" ${L.pub ? '' : auto ? 'title="Automático: muda com o cenário. Digite um número para fixar."' : 'title="Tamanho fixo digitado por você"'} aria-label="Pessoas no ${k + 1}º lote de ${Y.y}">${auto ? '<i>auto</i>' : !L.pub ? `<button class="unfx" data-act="unfix" data-yi="${yi}" data-k="${k}" title="Voltar ao automático">↺</button>` : ''}</span>
         <button class="pb ${L.pub ? 'on' : ''}" data-act="pub" data-yi="${yi}" data-k="${k}" aria-pressed="${!!L.pub}" title="${L.pub ? 'Lote já publicado (clique para desmarcar)' : 'Marcar como já publicado pelo TJCE'}">✓</button>
         ${L.pub ? `<span></span><span></span><span class="edl"><input type="text" id="f-${c}-le-${yi}-${k}" data-path="${c}.P.years.${yi}.lotes.${k}.ed" value="${esc(L.ed || '')}" placeholder="Publicado · Edital nº" aria-label="Número do edital"></span>` : ''}</div>`;
     });
-    lh += `<div class="warnline" data-out="over-${yi}">${t.over ? `Os lotes passam do total do ano em ${t.over}; o último ficou zerado.` : ''}</div></div>`;
+    lh += `<div class="warnline" data-out="over-${yi}">${t.over ? `Os lotes fixos passam do total do ano em ${t.over}; os automáticos ficaram zerados.` : ''}</div></div>`;
   });
-  lh += `<div class="actions"><button class="btn sm" data-act="addYear">+ ano</button>${P.years.length > 1 ? `<button class="btn sm" data-act="rmYear">− último ano</button>` : ''}</div>${how('lotes', '<p class="note">✓ = lote já publicado pelo TJCE: o tamanho fica fixo e o lote automático passa a ser o último não publicado do ano. Assim a simulação parte do que já aconteceu.</p>')}`;
+  lh += `<div class="actions"><button class="btn sm" data-act="addYear">+ ano</button>${P.years.length > 1 ? `<button class="btn sm" data-act="rmYear">− último ano</button>` : ''}</div>${how('lotes', '<p class="note"><b>auto</b> = o lote divide o total do ano com os outros automáticos, na proporção dos tamanhos da planilha. Ao mudar o cenário, a desistência ou o ajuste do ano, todos os lotes automáticos mudam. Digitar um número fixa o lote; ↺ volta ao automático.</p><p class="note">✓ = lote já publicado pelo TJCE: o tamanho fica fixo no valor atual. Assim a simulação parte do que já aconteceu.</p>')}`;
   h += sec('lotes', 'Lotes', lh);
   const tdN = Object.values(S[c].td).filter(Boolean).length + Object.values(S[c].hi || {}).filter(Boolean).length, ffN = Object.values(S[c].ff).filter(Boolean).length + Object.values(S[c].po || {}).filter(Boolean).length;
   h += sec('saidas', 'Saídas e heteroidentificação', `${fld('Lote complementar sai após (meses)', `${c}.P.delay`, P.delay, 'a contar do lote em que a pessoa foi chamada', 'min="0" max="24"')}
+    ${c === 'aj' ? fld('Cargo vago por exoneração entra quantos lotes depois', 'aj.P.lotesVac', P.lotesVac || 2, 'a contar do lote em que a pessoa foi chamada', 'min="1" max="6"') : ''}
     <label class="ck"><input type="checkbox" id="mpceTD" ${S[c].mpceTD ? 'checked' : ''}> Tratar como TD (depois de convocado) quem declarou na planilha do MPCE que prefere ficar no MPCE (${Object.values(MP[c] || {}).filter(v => v === 'fica').length} nesta lista)</label>
     ${how('saidas', `<p class="note"><b>Posse</b>: a pessoa já tomou posse; a linha fica verde e a fila não muda. <b>TD antes da convocação</b>: sai da lista e o próximo da mesma lista (AC ou cota) entra no mesmo lote. <b>TD depois de convocado(a)</b>: desiste. <b>FF</b>: final de fila. Nos dois casos a vaga passa ao próximo da mesma lista (ampla ou cota) ainda não convocado.</p>
     <p class="note"><b>HI</b> (só para cotas raciais): reprovado(a) na heteroidentificação. Sai da cota, liberando a vaga para o próximo cotista, e continua na ampla pela nota, empurrando para trás quem está atrás dele(a) na AC.</p>
@@ -2554,7 +2622,10 @@ function renderPanel() {
     <div class="actions">${SHARED_FORM ? `<a class="btn sm primary" href="${esc(SHARED_FORM)}" target="_blank" rel="noopener">Informar meu TD ou final de fila</a>` : ''}${SHARED_CSV ? `<button class="btn sm" data-act="reloadShared">Atualizar</button>` : ''}</div>`);
   if (c === 'aj') h += sec('import', 'Resultado definitivo (títulos)', `<p class="note">Quando a banca publicar o resultado definitivo, envie o arquivo (PDF, Excel ou CSV). O site encontra cada pessoa pela inscrição ou pelo nome, lê os títulos e a nota final e reordena a fila. Depois você alterna entre “Com projeção”, “Sem projeção” e “Resultado definitivo” no topo.</p>
     <input type="file" id="impFile" accept=".pdf,.xlsx,.xls,.csv,.txt" aria-label="Arquivo do resultado definitivo">`);
-  h += sec('vac', 'Vacância', `<label class="fld wide"><span>Cenário</span><select id="f-${c}-cen" data-path="${c}.P.cenario">${opts.map(o => `<option ${o === P.cenario ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
+  const capY = res.totals.filter(t => t.need != null && t.est < t.need).map(t => t.y);
+  h += sec('vac', 'Vacância', `<p class="note">O cenário muda <b>quantas pessoas são chamadas por ano</b> e, com isso, em qual lote e data cada uma entra. A <b>posição na fila</b> não muda com o cenário: ela só anda com saídas (TD, final de fila, heteroidentificação) e com os títulos.</p>
+    ${c === 'tec' && capY.length ? `<p class="autonote">Em ${capY.join(', ')} o cálculo passa do teto de convocações do ano (em “Convocações por ano”). Nesses anos o cenário não muda nada: o teto já é atingido.</p>` : ''}
+    <label class="fld wide"><span>Cenário</span><select id="f-${c}-cen" data-path="${c}.P.cenario">${opts.map(o => `<option ${o === P.cenario ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
     ${['Conservador', 'Base', 'Otimista'].map(k => fld('Taxa de saída · ' + k + ' (% a.a.)', `${c}.P.taxas.${k}`, P.taxas[k], null, 'step="0.1" min="0"')).join('')}
     ${c === 'aj' ? fld('Vacância por quadrimestre (cenário Print)', 'aj.P.vacPrint', P.vacPrint, '× 3 por ano', 'min="0"') : ''}`);
   if (c === 'aj') {
@@ -2596,7 +2667,8 @@ function renderPanel() {
 function renderOutputs() {
   R().totals.forEach((t, yi) => {
     const set = (k, v) => { const el = document.querySelector(`[data-out="${k}-${yi}"]`); if (el) el.textContent = v; };
-    set('est', t.est); set('used', t.used); set('last', t.lastSize + ' auto'); if (t.reab != null) set('reab', t.reab);
+    set('est', t.est); set('used', t.used); if (t.reab != null) set('reab', t.reab);
+    (t.flex || []).forEach(k => { const el = document.querySelector(`[data-out="ls-${yi}-${k}"]`); if (el && document.activeElement !== el) el.value = t.sizes[k]; });
     set('over', t.over ? `Os lotes passam do total do ano em ${t.over}; o último ficou zerado.` : '');
   });
 }
@@ -2764,7 +2836,7 @@ function actsInner(res, i, row) {
   if (row.kind === 'refuse') return '';
   const td = res.tdS.has(i), ff = res.ffS.has(i), sh = res.shS.has(i) ? ' sh' : '';
   const hi = res.hiS.has(i) && !res.hiSimS.has(i), canHi = hiEligible(res, i), po = stOf(res, i) === 'po';
-  return `<button class="ab pob ${po ? 'on' : ''}" data-mark="po" data-i="${i}" aria-pressed="${po}" title="Tomou posse">Posse</button><button class="ab tdb ${td ? 'on' + sh : ''}" data-mark="td" data-i="${i}" aria-pressed="${td}" title="${td && sh ? 'Informado na lista compartilhada' : 'Termo de desistência'}">TD</button><button class="ab ffb ${ff ? 'on' + sh : ''}" data-mark="ff" data-i="${i}" aria-pressed="${ff}" title="${ff && sh ? 'Informado na lista compartilhada' : 'Final de fila'}">FF</button>${canHi ? `<button class="ab hib ${hi ? 'on' + sh : ''}" data-mark="hi" data-i="${i}" aria-pressed="${hi}" title="Reprovado(a) na heteroidentificação">HI</button>` : ''}`;
+  return `<button class="ab pob ${po ? 'on' : ''}" data-mark="po" data-i="${i}" aria-pressed="${po}" title="Tomou posse">Posse</button><button class="ab tdb ${td ? 'on' + sh : ''}" data-mark="td" data-i="${i}" aria-pressed="${td}" title="${td && sh ? 'Informado na lista compartilhada' : 'Termo de desistência'}">TD</button><button class="ab ffb ${ff ? 'on' + sh : ''}" data-mark="ff" data-i="${i}" aria-pressed="${ff}" title="${ff && sh ? 'Informado na lista compartilhada' : 'Final de fila'}">FF</button><button class="ab exb ${(S[res.kind].exo || {})[i] ? 'on' : ''}" data-mark="exo" data-i="${i}" aria-pressed="${!!(S[res.kind].exo || {})[i]}" title="Exoneração (novo cargo vago)">Exon.</button>${canHi ? `<button class="ab hib ${hi ? 'on' + sh : ''}" data-mark="hi" data-i="${i}" aria-pressed="${hi}" title="Reprovado(a) na heteroidentificação">HI</button>` : ''}`;
 }
 // técnico aprovado em AJAJ: só as opções que valem para o caso (sempre com final de fila)
 const AJV = { pre: ['TD antes', 'TD antes da convocação'], post: ['TD pós', 'TD depois de convocado(a)'], exo: ['Exon.', 'Exoneração (novo cargo vago)'] };
@@ -2802,12 +2874,13 @@ function tagsHtml(res, i, row) {
   if (r && r.comp) tags += `<span class="tag sub" data-tip="s:${i}">Substituto</span>`;
   if (row.kind === 'refuse') tags += `<span class="tag td" data-tip="s:${i}">TD antes da conv. (AJAJ)</span>`;
   if (res.kind === 'aj' && S.aj.edits[i] && S.aj.edits[i].tit != null) tags += '<span class="tag ed">título editado</span>';
+  if (res.kind === 'aj' && (S.aj.exo || {})[i]) tags += `<span class="tag out2" data-tip="s:${i}">exoneração → cargo vago${res.vacWhere && res.vacWhere[i] ? ' no lote ' + res.vacWhere[i] : ''}</span>`;
   if (res.kind === 'tec' && row.kind !== 'refuse') { const e = ajEff(res, i); if (e === 'post') tags += `<span class="tag td" data-tip="s:${i}">TD após conv. (AJAJ)</span>`; else if (e === 'exo') tags += `<span class="tag out2" data-tip="s:${i}">exoneração → cargo vago</span>`; else if ((S.tec.exo || {})[i]) tags += `<span class="tag out2" data-tip="s:${i}">exoneração (marcada)</span>`; }
   return tags;
 }
 // cor da linha para marcações do usuário: exoneração (lilás) e reprovação na heteroidentificação (rosa)
 function markCls(res, i) {
-  if (res.kind === 'tec' && ((S.tec.exo || {})[i] || (S.tec.ajx || {})[i] === 'exo')) return 'st-exo';
+  if ((S[res.kind].exo || {})[i] || (res.kind === 'tec' && (S.tec.ajx || {})[i] === 'exo')) return 'st-exo';
   if (res.hiS.has(i) && !res.hiSimS.has(i)) return 'st-hi';
   return '';
 }
@@ -3004,7 +3077,7 @@ function renderDrawer() {
       <button class="obig tdb ${td && res.preS.has(i) ? 'on' : ''}" data-mark="td" data-when="pre" data-i="${i}" aria-pressed="${td && res.preS.has(i)}"><span class="box">${td && res.preS.has(i) ? '✓' : ''}</span><span><b>TD antes da convocação</b><br><small>O próximo da mesma lista entra no mesmo lote</small></span></button>
       <button class="obig tdb ${td && !res.preS.has(i) ? 'on' : ''}" data-mark="td" data-when="post" data-i="${i}" aria-pressed="${td && !res.preS.has(i)}"><span class="box">${td && !res.preS.has(i) ? '✓' : ''}</span><span><b>TD depois de convocado(a)</b><br><small>Vaga reaberta em lote complementar</small></span></button>
       <button class="obig ffb ${ff ? 'on' : ''}" data-mark="ff" data-i="${i}" aria-pressed="${ff}"><span class="box">${ff ? '✓' : ''}</span><span><b>Final de fila</b><br><small>Vai para o fim da lista</small></span></button>
-      ${hiEligible(res, i) ? `<button class="obig hib ${res.hiS.has(i) ? 'on' : ''}" data-mark="hi" data-i="${i}" aria-pressed="${res.hiS.has(i)}"><span class="box">${res.hiS.has(i) ? '✓' : ''}</span><span><b>Reprovado(a) na heteroidentificação</b><br><small>Sai da cota e segue na ampla</small></span></button>` : ''}${res.kind === 'tec' ? `<button class="obig exb ${(S.tec.exo || {})[i] ? 'on' : ''}" data-mark="exo" data-i="${i}" aria-pressed="${!!(S.tec.exo || {})[i]}"><span class="box">${(S.tec.exo || {})[i] ? '✓' : ''}</span><span><b>Exoneração</b><br><small>Toma posse e depois sai: novo cargo vago, sem adiantar a fila</small></span></button>` : ''}</div>`;
+      ${hiEligible(res, i) ? `<button class="obig hib ${res.hiS.has(i) ? 'on' : ''}" data-mark="hi" data-i="${i}" aria-pressed="${res.hiS.has(i)}"><span class="box">${res.hiS.has(i) ? '✓' : ''}</span><span><b>Reprovado(a) na heteroidentificação</b><br><small>Sai da cota e segue na ampla</small></span></button>` : ''}${(() => { const ex = !!(S[res.kind].exo || {})[i]; return `<button class="obig exb ${ex ? 'on' : ''}" data-mark="exo" data-i="${i}" aria-pressed="${ex}"><span class="box">${ex ? '✓' : ''}</span><span><b>Exoneração</b><br><small>Toma posse e depois sai: novo cargo vago, sem adiantar a fila</small></span></button>`; })()}</div>`;
     if (hiEligible(res, i) && !res.hiS.has(i)) {
       const l2 = moveToAC(res, res.lists, i), s2 = res.run({ lists: withFF(l2, res.ffS), remove: res.tdS }), r2r = s2.rec[i];
       if (r2r && r2r.type === 'call') h += `<p class="note">Se for reprovado(a) na heteroidentificação, passa a concorrer na ampla: ${r2r.slot}ª posição (${loteShort(res, r2r)}), em vez da ${n}ª. A vaga da cota vai para o próximo cotista.</p>`;
@@ -3305,7 +3378,7 @@ function openTdPop(btn, i) {
   pop.innerHTML = `<div class="tpt">Termo de desistência · ${esc(nm(res, i))}</div>
     <button data-mark="td" data-when="pre" data-i="${i}" class="${on && pre ? 'on' : ''}"><b>Antes da convocação</b><small>O próximo da mesma lista (AC ou cota) entra no mesmo lote</small></button>
     <button data-mark="td" data-when="post" data-i="${i}" class="${on && !pre ? 'on' : ''}"><b>Depois de convocado(a)</b><small>A vaga é reaberta num lote complementar</small></button>
-    ${on ? `<button data-mark="td" data-when="off" data-i="${i}"><b>Remover TD</b></button>` : ''}`;
+    ${on ? `<button data-mark="td" data-when="off" data-i="${i}"><b>Remover TD</b></button>` : ''}<button class="tpx" data-act="tdClose"><b>Cancelar</b></button>`;
   pop.hidden = false;
   const rc = btn.getBoundingClientRect(), w = pop.offsetWidth, hgt = pop.offsetHeight;
   pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.right - w)) + 'px';
@@ -3322,7 +3395,7 @@ function mark(kind, i, when) {
     update(true); toast(T.ajx[i] === 'none' ? 'Ida para AJAJ ignorada: fica no técnico' : v === 'exo' ? 'Exoneração · novo cargo vago' : v === 'pre' ? 'TD antes da convocação' : 'TD depois de convocado(a)'); return;
   }
   if (kind === 'exo') {
-    const T = S.tec; T.exo = T.exo || {}; const on = !T.exo[i];
+    const T = S[S.cargo]; T.exo = T.exo || {}; const on = !T.exo[i];
     if (on) { T.exo[i] = 1; delete T.td[i]; delete T.ff[i]; } else delete T.exo[i];
     update(true); toast(on ? 'Exoneração marcada · novo cargo vago (a fila não anda)' : 'Exoneração removida'); return;
   }
@@ -3404,9 +3477,10 @@ document.addEventListener('click', e => {
     case 'openPin': if (S.ui.pins[c] != null) openDrawer(S.ui.pins[c]); break;
     case 'pub': {
       const yi = +t.dataset.yi, k = +t.dataset.k, L = P.years[yi].lotes[k], tt = R().totals[yi];
-      if (!L.pub && k === tt.autoIdx) L.s = tt.lastSize;
+      if (!L.pub && tt.sizes) L.s = tt.sizes[k];
       L.pub = !L.pub; update(true); toast(L.pub ? 'Lote marcado como publicado' : 'Lote voltou a ser projeção'); break;
     }
+    case 'unfix': { const L = P.years[+t.dataset.yi].lotes[+t.dataset.k]; delete L.fx; update(true); toast('Lote voltou ao automático'); break; }
     case 'lotesN': {
       const yi = +t.dataset.yi, Y = P.years[yi], n = Math.max(1, Math.min(12, Y.lotes.length + +t.dataset.d));
       if (n === Y.lotes.length) break;
@@ -3420,7 +3494,7 @@ document.addEventListener('click', e => {
     }
     case 'addYear': { const L = P.years[P.years.length - 1], Y = JSON.parse(JSON.stringify(L)); Y.y = L.y + 1; Y.manual = null; Y.lotes.forEach(x => { delete x.pub; delete x.ed; }); P.years.push(Y); update(true); break; }
     case 'rmYear': if (P.years.length > 1) { P.years.pop(); update(true); } break;
-    case 'clearOut': S[c].td = {}; S[c].ff = {}; S[c].hi = {}; S[c].po = {}; if (c === 'tec') { S.tec.exo = {}; S.tec.ajx = {}; } update(true); toast('Suas marcações foram removidas'); break;
+    case 'clearOut': S[c].td = {}; S[c].ff = {}; S[c].hi = {}; S[c].po = {}; S[c].exo = {}; if (c === 'tec') S.tec.ajx = {}; update(true); toast('Suas marcações foram removidas'); break;
     case 'clearEdits': S.aj.edits = {}; update(true); toast('Títulos voltaram aos valores da planilha'); break;
     case 'hiOk': case 'hiUndo': {
       const j = +t.dataset.i, cc = S[c]; cc.hiOk = cc.hiOk || {};
@@ -3429,6 +3503,7 @@ document.addEventListener('click', e => {
     }
     case 'openAvanc': go('avanc'); break;
     case 'navClose': closeNav(); break;
+    case 'tdClose': closeTdPop(); break;
     case 'navGrp': { const g = t.dataset.g; S.ui.navG = Object.assign({}, S.ui.navG, { [g]: !navOpenG(g) }); save(); renderNav(); break; }
     case 'cmpAdd': cmpAdd(+t.dataset.i); break;
     case 'cmpRm': cmpRemove(+t.dataset.i); break;
@@ -3511,6 +3586,8 @@ $('#panel').addEventListener('change', e => {
   if (el.type === 'number') v = v === '' ? null : +v;
   else if (el.tagName === 'SELECT' && /\.m$/.test(el.dataset.path)) v = +v;
   setPath(el.dataset.path, v);
+  // tamanho de lote digitado: fica fixo (vazio = volta ao automático)
+  if (/\.lotes\.\d+\.s$/.test(el.dataset.path)) { const ps = el.dataset.path.split('.'), t = R().totals[+ps[3]]; if (v == null) setPath(el.dataset.path, t.sizes ? t.sizes[+ps[5]] : 0); setPath(el.dataset.path.replace(/\.s$/, '.fx'), v != null); update(true); return; }
   update(el.tagName === 'SELECT');
   if (el.dataset.path === 'aj.P.cot') toast(`Contabilização do cotista: ${COTN[cotMode()]} · fila recalculada`);
   if (el.dataset.path === 'aj.P.nac' || el.dataset.path === 'tec.P.nac') toast('Vagas oferecidas à ampla atualizadas · fila recalculada');
