@@ -1475,7 +1475,7 @@ function defaults() {
     cargo: 'aj',
     aj: {
       P: {
-        cenario: 'Base', taxas: { Conservador: 1.5, Base: 2, Otimista: 3 }, novos: 50, criados: 70, quadro2025: 723, vacPrint: 6, delay: 1, cot: 'H', devol: 'mesmo', nac: 0,
+        cenario: 'Base', taxas: { Conservador: 1.5, Base: 2, Otimista: 3 }, novos: 50, criados: 70, quadro2025: 723, vacPrint: 6, delay: 1, cot: 'H', devol: 'mesmo', nac: 0, auto: true,
         years: [2027, 2028, 2029].map((y, i) => ({ y, desist: [10, 15, 20][i], novos: null, manual: null, lotes: D.ajLotes.filter(l => l[0] === y).map(l => ({ m: l[1], s: l[2] })) }))
       },
       edits: {}, td: {}, ff: {}, hi: {}, po: {}, titMode: 'proj', def: null, hiPct: 0, hiSeed: 1
@@ -1667,12 +1667,12 @@ function computeAJ(st, m) {
   hiReq.forEach(i => { const p = people[i]; if (!p || !p.lists0.some(t => RAC.includes(t))) return; hiS.add(i); p.hi = true; p.lists = p.lists0.filter(t => !RAC.includes(t)); if (!p.lists.includes('A')) p.lists = ['A'].concat(p.lists); });
   const lists = ajajLists(people), ranks = compRanks(people, lists);
   const listsBase = hiS.size ? ajajLists(people.map(p => ({ ...p, lists: p.lists0 }))) : lists;
-  const EP = { cenario: P.cenario, taxas: pctObj(P.taxas), novos: +P.novos || 0, criados: +P.criados || 0, quadro2025: +P.quadro2025 || 0, vacPrint: +P.vacPrint || 0, years: P.years.map(Y => ({ ...Y, desist: (+Y.desist || 0) / 100, manual: allPub(Y) ? pubSum(Y) : Y.manual })) };
+  const EP = { cenario: P.cenario, taxas: pctObj(P.taxas), novos: +P.novos || 0, criados: +P.criados || 0, quadro2025: +P.quadro2025 || 0, vacPrint: +P.vacPrint || 0, years: P.years.map(Y => ({ ...Y, desist: P.auto === false ? 0 : (+Y.desist || 0) / 100, manual: allPub(Y) ? pubSum(Y) : Y.manual })) };
   const totals = ajajYears(EP, people.length);
   const lotes = buildLotes(P.years, totals);
   const baseOpt = { n: people.length, lists, lotes, PAT: D.pat, delay: Math.max(0, Math.round(+P.delay || 0)), fallback: FALLBACK_AJ, td: new Set(), model: M, devol: devolOf(st), nac: nacOf(st, 'aj'), acRank: i => ranks.A.get(i) || Infinity };
   const run = o => simulate({ ...baseOpt, ...o });
-  return finish({ kind: 'aj', model: M, people, lists, listsBase, ranks, totals, lotes, tdS, ffS, hiS, hiSimS, hiOkS, shS, mpS, preS, run, mode, base: run({ lists: listsBase }), baseOpt });
+  return finish({ kind: 'aj', model: M, people, lists, listsBase, ranks, totals, lotes, tdS, ffS, hiS, hiSimS, hiOkS, shS, mpS, preS, run, mode, base: run({ lists: listsBase }), baseOpt, auto: P.auto !== false });
 }
 function computeTEC(aj, st, m) {
   st = st || S; const M = m || primM(st), DV = devolOf(st), NAC = nacOf(st, 'tec');
@@ -1718,7 +1718,7 @@ function computeTEC(aj, st, m) {
     if (!r || r.type !== 'call' || aj.outS.has(i) || r.date == null || !isFinite(r.date)) return;
     servCalls.push(i); servD[i] = r.date;
   });
-  const EP = { cenario: P.cenario, taxas: pctObj(P.taxas), estoque: +P.estoque || 0, tecAjaj: servAuto || !auto ? 0 : +P.tecAjaj || 0, servY: {}, quadro2025: +P.quadro2025 || 0, criados: +P.criados || 0, part: (+P.part || 0) / 100, desist: (+P.desist || 0) / 100, years: P.years.map(Y => allPub(Y) ? { ...Y, manual: pubSum(Y) } : Y) };
+  const EP = { cenario: P.cenario, taxas: pctObj(P.taxas), estoque: +P.estoque || 0, tecAjaj: servAuto || !auto ? 0 : +P.tecAjaj || 0, servY: {}, quadro2025: +P.quadro2025 || 0, criados: +P.criados || 0, part: (+P.part || 0) / 100, desist: auto ? (+P.desist || 0) / 100 : 0, years: P.years.map(Y => allPub(Y) ? { ...Y, manual: pubSum(Y) } : Y) };
   const delay = Math.max(0, Math.round(+P.delay || 0));
   // cargos vagos por exoneração: entram NL lotes depois (lotes publicados não mudam; respeita o teto do ano)
   const vacsOf = ev => {
@@ -2043,7 +2043,7 @@ function tipContent(key) {
     case 'x': return explainSim(res, i);
     case 'r': return explainRange(S.cargo, i);
     case 'p': { const all = approvals(S.cargo, i); return `<div class="th">Aprovações em outros concursos</div>${all.map(x => `<p>${apLine(x)}</p>`).join('')}<p class="tm">Cruzamento pelo nome completo; pode haver homônimos. Clique para ver na ficha.</p>`; }
-    case 'h': return v === 'cot' ? cotTipHtml() : HEAD_TIPS[v] || '';
+    case 'h': return v === 'cot' ? cotTipHtml() : v === 'auto' ? autoTipHtml() : HEAD_TIPS[v] || '';
     case 'k': return explainCot(res, i);
     case 'j': return explainServ(res, i);
     case 'KA': case 'KB': case 'KH': return explainCot(resOf(S.cargo, k[1]), i);
@@ -2115,6 +2115,11 @@ function renderScen() {
   if (pct) sn += `<div class="sn">${k - (res.hiOkS ? res.hiOkS.size : 0)} de ${pool} cotistas raciais reprovados na heteroidentificação${pct < 100 ? ' (sorteio simulado, não indica ninguém de verdade)' : ''}${res.hiOkS && res.hiOkS.size ? ` · ${res.hiOkS.size} ${plural(res.hiOkS.size, 'marcado', 'marcados')} como ${plural(res.hiOkS.size, 'aprovado', 'aprovados')} (<button class="lnk" data-act="hiOkClear">desfazer todos</button>)` : ''}${S.ui.pins[c] != null ? ' · o nome que você acompanha conta como aprovado' : ''}</div>`;
   { const cm = cotMode(); h += `<div class="sg cotbar"><div class="sl" data-tip="h:cot">Cotista c/ nota de ampla</div><button class="mchip" data-act="openAvanc" title="Alterar em Avançado">${MSH[cm] || COTN[cm]}</button></div>`; }
   $('#scen').innerHTML = h + sn + '</div>';
+}
+function autoTipHtml() {
+  if (S.cargo === 'aj') { const ds = S.aj.P.years.map(Y => `${Y.y}: ${Y.desist}%`).join(' · ');
+    return `<div class="th">Automático · Analista</div><p><b>ON:</b> o sistema já conta que parte dos convocados vai desistir (mandar TD ou não tomar posse) e chama gente a mais para cobrir: desistência estimada de ${ds}, em “Convocações por ano”.</p><p><b>OFF:</b> não conta nenhuma desistência estimada. Só saem as pessoas que você marcar (TD antes, TD depois, final de fila, heteroidentificação), uma por vez, e cada saída abre vaga para o próximo da mesma lista.</p>`; }
+  return `<div class="th">Automático · Técnico</div><p><b>ON:</b> o sistema calcula sozinho, para quem passou também em AJAJ, quem manda TD antes da convocação, quem manda TD depois de convocado e quem toma posse e pede exoneração (novo cargo vago). Também conta os técnicos atuais do TJCE que vão para AJAJ e a desistência geral estimada (${S.tec.P.desist}%).</p><p><b>OFF:</b> nada disso é calculado. Só valem as marcações que você fizer, uma pessoa por vez (toque no nome para abrir a ficha). A cada marcação os lotes são recalculados com as mesmas regras.</p>`;
 }
 function cotTipHtml() {
   const c = S.cargo, cm = cotMode();
@@ -2500,7 +2505,7 @@ function renderPanel() {
   const opts = c === 'aj' ? ['Conservador', 'Base', 'Otimista', 'Print'] : ['Conservador', 'Base', 'Otimista'];
   let h = '';
   if (c === 'aj') {
-    h += sec('anos', 'Convocações por ano', `<div class="scroll"><table class="ytbl"><thead><tr><th>Ano</th><th>Cargos novos</th><th>Desist. %</th><th>Estimado</th><th>Ajuste</th><th>Usado</th></tr></thead><tbody>
+    h += sec('anos', 'Convocações por ano', `${P.auto === false ? '<p class="autonote"><b>Automático OFF.</b> A desistência estimada não entra no cálculo: só saem as pessoas que você marcar na lista. Ligue o Automático ao lado de “Filtros”.</p>' : ''}<div class="scroll"><table class="ytbl"><thead><tr><th>Ano</th><th>Cargos novos</th><th>Desist. %</th><th>Estimado</th><th>Ajuste</th><th>Usado</th></tr></thead><tbody>
       ${P.years.map((Y, yi) => `<tr><td><b>${Y.y}</b></td>
         <td><input type="number" id="f-aj-yn-${yi}" data-path="aj.P.years.${yi}.novos" value="${Y.novos == null ? '' : Y.novos}" placeholder="${P.novos}" min="0"></td>
         <td><input type="number" id="f-aj-yd-${yi}" data-path="aj.P.years.${yi}.desist" value="${Y.desist}" step="1" min="0" max="90"></td>
@@ -2509,7 +2514,7 @@ function renderPanel() {
         <td class="out strong" data-out="used-${yi}">${res.totals[yi].used}</td></tr>`).join('')}</tbody></table></div>
       <p class="note">Estimado = (cargos novos + vacância) ÷ (1 − desistência). Preencha “Ajuste” para fixar quantos são chamados no ano.</p>`);
   } else {
-    h += sec('anos', 'Convocações por ano', `<div class="scroll"><table class="ytbl"><thead><tr><th>Ano</th><th>Novos</th><th>Teto</th><th>Reab.</th><th>Calc.</th><th>Ajuste</th><th>Usado</th></tr></thead><tbody>
+    h += sec('anos', 'Convocações por ano', `${P.auto === false ? '<p class="autonote"><b>Automático OFF.</b> Não entram a desistência geral estimada, as saídas de quem passou em AJAJ nem os técnicos atuais que vão para AJAJ: só valem as suas marcações na lista.</p>' : ''}<div class="scroll"><table class="ytbl"><thead><tr><th>Ano</th><th>Novos</th><th>Teto</th><th>Reab.</th><th>Calc.</th><th>Ajuste</th><th>Usado</th></tr></thead><tbody>
       ${P.years.map((Y, yi) => `<tr><td><b>${Y.y}</b></td>
         <td><input type="number" id="f-tec-yn-${yi}" data-path="tec.P.years.${yi}.novos" value="${Y.novos}" min="0"></td>
         <td><input type="number" id="f-tec-yt-${yi}" data-path="tec.P.years.${yi}.teto" value="${Y.teto == null ? '' : Y.teto}" placeholder="∞" min="0"></td>
@@ -2885,7 +2890,7 @@ function renderTable() {
   { const nf = [ui.conc && norm(ui.conc).trim(), ui.lista, ui.show, +ui.simN].filter(Boolean).length, open = !!S.ui.fopen || nf > 0 && S.ui.fopen !== false;
     $('#tb2').hidden = !open; const fb = tb.querySelector('[data-act="tbarMore"]'); fb.setAttribute('aria-expanded', open); fb.classList.toggle('on', open);
     $('#fcnt').hidden = !nf; $('#fcnt').textContent = nf; }
-  { const on = S.tec.P.auto !== false; $('#autosw').innerHTML = isAJ ? '' : `<button class="autosw ${on ? 'on' : 'off'}" data-act="autoTec" role="switch" aria-checked="${on}" data-tip="h:auto"><span class="ak"></span><span class="al">Automático <b>${on ? 'ON' : 'OFF'}</b></span></button>`; }
+  { const on = S[S.cargo].P.auto !== false; $('#autosw').innerHTML = `<button class="autosw ${on ? 'on' : 'off'}" data-act="autoTog" role="switch" aria-checked="${on}" data-tip="h:auto"><span class="ak"></span><span class="al">Automático <b>${on ? 'ON' : 'OFF'}</b></span></button>`; }
   $('#lotechip').innerHTML = ui.lote != null ? `<span class="chip">${String(ui.lote)[0] === 'C' ? 'Complementar ' + fmtDate(+String(ui.lote).slice(1)) : 'Lote ' + ui.lote}<button data-act="clearLote" aria-label="Remover filtro de lote">×</button></span>` : '';
   const groups = buildGroups(res), filtering = !!(ui.q || ui.conc || ui.lista || ui.show);
   const sim = +ui.simN ? 1 : 0, ab = altMs().length ? 1 : 0, ncol = 9 + sim + ab;
@@ -3392,7 +3397,7 @@ document.addEventListener('click', e => {
     case 'hideNotice': S.ui.noticeHidden = true; save(); $('#notice').hidden = true; break;
     case 'clearLote': S.ui.lote = null; save(); renderSummary(); renderTable(); break;
     case 'tail': S.ui.tail = !S.ui.tail; save(); renderTable(); break;
-    case 'autoTec': { const P2 = S.tec.P; P2.auto = P2.auto === false; update(true); toast(P2.auto ? 'Automático ON · o sistema calcula TD antes, TD depois e exonerações de quem passou em AJAJ' : 'Automático OFF · só valem as suas marcações (toque num nome para marcar)'); break; }
+    case 'autoTog': { const P2 = S[c].P; P2.auto = P2.auto === false; update(true); toast(P2.auto ? (c === 'aj' ? 'Automático ON · a desistência estimada volta a entrar no número de convocações' : 'Automático ON · o sistema calcula TD antes, TD depois, exonerações e a desistência estimada') : 'Automático OFF · só valem as suas marcações (toque num nome para marcar)'); break; }
     case 'tbarMore': S.ui.fopen = $('#tb2').hidden; save(); renderTable(); if (S.ui.fopen) { const f = $('#conc'); if (f && !isMobile()) f.focus({ preventScroll: true }); } break;
     case 'pin': setPin(+t.dataset.i); break;
     case 'unpin': setPin(null); break;
